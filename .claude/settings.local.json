@@ -23,7 +23,14 @@
       "Bash(\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming\\\\nvm\\\\v18.20.3\\\\npm.cmd\" list --depth=0)",
       "Bash(\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming\\\\nvm\\\\v18.20.3\\\\npm.cmd\" run dev)",
       "Bash(\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming\\\\nvm\\\\v18.20.3\\\\npm.cmd\" install vue-router)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(test:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }
