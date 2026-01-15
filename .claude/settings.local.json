@@ -3,7 +3,27 @@
     "allow": [
       "Bash(dir:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(gh:*)",
+      "Bash(git commit:*)",
+      "Bash(where:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(node:*)",
+      "Bash(npm --version)",
+      "Bash(nvm version:*)",
+      "Bash(nvm list:*)",
+      "Bash(\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming\\\\nvm\\\\nvm.exe\" list)",
+      "Bash(nvm ls:*)",
+      "Bash(cmd:*)",
+      "Bash(\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming\\\\nvm\\\\v18.20.3\\\\node.exe\":*)",
+      "Bash(\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming\\\\nvm\\\\v18.20.3\\\\npm.cmd\" install)",
+      "Bash(\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming\\\\nvm\\\\v18.20.3\\\\npm.cmd\" list --depth=0)",
+      "Bash(\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming\\\\nvm\\\\v18.20.3\\\\npm.cmd\" run dev)",
+      "Bash(\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming\\\\nvm\\\\v18.20.3\\\\npm.cmd\" install vue-router)",
+      "Bash(tree:*)"
     ]
   }
 }
