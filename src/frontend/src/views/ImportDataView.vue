@@ -2,14 +2,7 @@
   <div class="import-data-view-page">
     <!-- 批次信息卡片 -->
     <el-card class="batch-info-card">
-      <el-page-header @back="handleBack" :content="`导入批次号: ${batchNo}`">
-        <template #extra>
-          <el-button type="success" @click="handleExport">
-            <el-icon><Download /></el-icon>
-            导出数据
-          </el-button>
-        </template>
-      </el-page-header>
+      <el-page-header @back="handleBack" :content="`导入批次号: ${batchNo}`" />
     </el-card>
 
     <!-- 汇总信息 -->
@@ -55,48 +48,44 @@
         :data="tableData"
         border
         stripe
-        :default-sort="{ prop: 'startTime', order: 'descending' }"
-        height="calc(100vh - 380px)"
+        :default-sort="{ prop: 'id', order: 'ascending' }"
+        height="100%"
       >
         <el-table-column type="index" label="序号" width="60" fixed />
-        <el-table-column prop="serialNo" label="序号" width="100" />
+        <el-table-column prop="serialNo" label="Excel序号" width="100" />
         <el-table-column prop="userName" label="姓名" width="100" fixed />
         <el-table-column prop="deptName" label="部门" width="120" />
         <el-table-column prop="projectName" label="项目名称" width="200" fixed show-overflow-tooltip />
         <el-table-column prop="projectManager" label="项目经理" width="100" />
-        <el-table-column prop="startTime" label="开始时间" width="160" sortable />
-        <el-table-column prop="endTime" label="结束时间" width="160" />
-        <el-table-column prop="workHours" label="工作时长" width="100" align="right" sortable>
+        <el-table-column prop="startTime" label="开始时间" width="120" sortable class-name="sortable-column">
+          <template #default="{ row }">
+            <span>{{ formatDate(row.startTime) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="endTime" label="结束时间" width="120">
+          <template #default="{ row }">
+            <span>{{ formatDate(row.endTime) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="workHours" label="工作时长" width="100" align="right" sortable class-name="sortable-column">
           <template #default="{ row }">
             <span>{{ row.workHours?.toFixed(1) || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="overtimeHours" label="加班时长" width="100" align="right" sortable>
+        <el-table-column prop="overtimeHours" label="加班时长" width="100" align="right" sortable class-name="sortable-column">
           <template #default="{ row }">
             <span>{{ row.overtimeHours?.toFixed(1) || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="workContent" label="工作内容" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="approvalResult" label="审批结果" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.approvalResult === '通过'" type="success" size="small">通过</el-tag>
-            <el-tag v-else type="danger" size="small">{{ row.approvalResult || '-' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="approvalStatus" label="审批状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.approvalStatus === '已完成'" type="success" size="small">已完成</el-tag>
-            <el-tag v-else type="info" size="small">{{ row.approvalStatus || '-' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="160" />
+        <el-table-column prop="importTime" label="导入时间" width="160" />
       </el-table>
 
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.size"
-          :page-sizes="[20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
@@ -111,7 +100,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getImportDataView, exportImportData } from '@/api'
+import { getImportDataView } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,7 +112,7 @@ const batchNo = ref('')
 
 const pagination = reactive({
   page: 1,
-  size: 20,
+  size: 10,
   total: 0
 })
 
@@ -157,22 +146,11 @@ const handlePageChange = () => {
   loadData()
 }
 
-const handleExport = async () => {
-  try {
-    const res = await exportImportData(batchNo.value)
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `工时导入数据_${batchNo.value}.xlsx`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
-    ElMessage.success('导出成功')
-  } catch (error) {
-    console.error('导出失败:', error)
-  }
+// 格式化日期：只显示日期部分
+const formatDate = (dateTimeStr) => {
+  if (!dateTimeStr) return '-'
+  // ISO格式：2026-01-15T09:00:00
+  return dateTimeStr.split('T')[0]
 }
 
 onMounted(() => {
@@ -191,13 +169,17 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  height: calc(100vh - 120px);
+  overflow: hidden;
 }
 
 .batch-info-card {
+  flex-shrink: 0;
   margin-bottom: 0;
 }
 
 .summary-card {
+  flex-shrink: 0;
   margin-bottom: 0;
 }
 
@@ -232,6 +214,8 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  margin-bottom: 0;
 }
 
 .table-card :deep(.el-card__body) {
@@ -239,11 +223,22 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding: 16px;
 }
 
 .pagination-wrapper {
+  flex-shrink: 0;
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+:deep(.sortable-column .cell) {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+:deep(.sortable-column .cell .caret-wrapper) {
+  margin-left: 4px;
 }
 </style>

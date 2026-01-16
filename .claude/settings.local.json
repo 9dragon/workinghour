@@ -30,7 +30,11 @@
       "Bash(pip install:*)",
       "Bash(python:*)",
       "Bash(curl:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(findstr:*)",
+      "Bash(netstat:*)",
+      "Bash(timeout:*)"
     ]
   }
 }

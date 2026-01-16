@@ -277,7 +277,9 @@ Content-Type: multipart/form-data
 
 **业务规则：**
 - 仅导入审批结果为"通过"且审批状态为"已完成"的记录
-- 唯一性标识：序号+姓名+开始时间+项目名称
+- 唯一性标识：姓名+开始时间+项目名称
+- **同批次内**：允许同一人同一时间同一项目提交多条工时
+- **跨批次**：不同批次中同一人同一时间同一项目的数据视为重复
 - 默认策略：skip（跳过重复数据），可选：overwrite（覆盖重复数据）
 - 生成导入批次号：格式 `IMP_YYYYMMDDHHMMSS_XXXX`
 
@@ -414,7 +416,7 @@ Authorization: Bearer <JWT_TOKEN>
 
 ### 4.3 查询导入批次详情
 
-**接口地址：** `GET /api/v1/data/records/{batchNo}`
+**接口地址：** `GET /api/v1/import/record/{batchNo}`
 
 **请求头：**
 
@@ -433,41 +435,111 @@ Authorization: Bearer <JWT_TOKEN>
 ```json
 {
   "code": 200,
-  "message": "查询成功",
+  "message": "操作成功",
   "data": {
-    "batchNo": "IMP_20260115103000_1234",
+    "id": 1,
+    "batchNo": "IMP_20260116223333_1234",
     "fileName": "研发部_2026年1月工时.xlsx",
-    "fileSize": 102400,
-    "totalRows": 150,
-    "successRows": 145,
-    "repeatRows": 3,
-    "invalidRows": 2,
-    "duplicateStrategy": "skip",
+    "totalRows": 810,
+    "successRows": 725,
+    "repeatRows": 0,
+    "invalidRows": 85,
     "importUser": "admin",
-    "importTime": "2026-01-15T10:30:00+08:00",
+    "importTime": "2026-01-16 22:33:33",
+    "fileSize": 204800,
+    "duplicateStrategy": "skip",
     "errors": [
       {
-        "row": 12,
-        "field": "开始时间",
-        "error": "时间格式错误，应为YYYY-MM-DD HH:mm:ss"
+        "row": 3,
+        "field": "审批结果",
+        "error": "审批结果为'--'，仅支持'通过'或'审批通过'"
+      },
+      {
+        "row": 4,
+        "field": "项目交付-项目名称",
+        "error": "项目交付-项目名称字段为空"
+      },
+      {
+        "row": 8,
+        "field": "项目交付-工作时长",
+        "error": "工作时长超过168小时（一周最大时长）"
+      }
+    ],
+    "repeats": [
+      {
+        "row": 7,
+        "field": "数据重复",
+        "error": "序号A001、姓名张三、时间2026-01-15 09:00:00、项目智慧城市的工时数据已存在",
+        "existing_batch": "IMP_20260110100000_1234"
+      },
+      {
+        "row": 15,
+        "field": "数据重复",
+        "error": "序号A002、姓名李四、时间2026-01-15 14:00:00、项目管理系统的工时数据已存在",
+        "existing_batch": "IMP_20260112150000_5678"
       }
     ],
     "summary": {
-      "totalWorkHours": 1160.0,
-      "totalOvertimeHours": 45.5,
-      "userCount": 15,
-      "projectCount": 8
+      "successRate": "89.5%",
+      "repeatRate": "10.5%",
+      "invalidRate": "10.5%"
     }
   },
-  "timestamp": "2026-01-15T10:30:00+08:00"
+  "timestamp": "2026-01-16T22:35:00"
 }
 ```
+
+**响应字段说明：**
+
+|字段名|类型|说明|
+|---|---|---|
+|batchNo|string|导入批次号|
+|fileName|string|导入的Excel文件名（原始文件名）|
+|importUser|string|执行导入操作的用户名|
+|importTime|string|导入时间，格式：yyyy-MM-dd HH:mm:ss|
+|totalRows|number|上传文件的总数据行数|
+|successRows|number|成功导入的有效数据行数|
+|repeatRows|number|重复数据行数|
+|invalidRows|number|无效数据行数|
+|fileSize|number|导入文件大小（字节）|
+|duplicateStrategy|string|重复数据处理策略（skip/cover）|
+|errors|array|错误详情数组，包含所有无效数据的错误信息|
+|errors[].row|number|Excel文件中的行号（包含表头，从2开始）|
+|errors[].field|string|出错的字段名称|
+|errors[].error|string|详细的错误原因描述|
+|repeats|array|重复数据详情数组，包含所有重复数据的信息|
+|repeats[].row|number|Excel文件中的行号（包含表头，从2开始）|
+|repeats[].field|string|固定为"数据重复"|
+|repeats[].error|string|重复数据详细描述，包含序号、姓名、时间、项目信息|
+|repeats[].existing_batch|string|已存在数据所属的导入批次号|
+|summary|object|导入摘要统计信息|
+|summary.successRate|string|成功率（百分比）|
+|summary.repeatRate|string|重复率（百分比）|
+|summary.invalidRate|string|无效率（百分比）|
+
+**重要说明：**
+
+1. **错误详情数量**：支持返回所有错误记录，不限制100条
+2. **重复数据详情**：支持返回所有重复数据记录，不限制数量
+3. **错误类型**：
+   - 字段为空："{字段名}字段为空"
+   - 格式错误："时间格式错误"、"工作时长格式错误"
+   - 取值异常："审批结果为'xxx'，仅支持'通过'或'审批通过'"
+   - 范围超限："工作时长超过168小时（一周最大时长）"
+4. **重复数据处理**：
+   - 重复数据根据唯一性标识判定（姓名+开始时间+项目名称）
+   - **同批次内**：允许同一个人在同一时间为同一项目提交多条工时记录
+   - **跨批次**：不同批次的导入中，相同判定条件的数据视为重复
+   - existing_batch字段显示原始数据所属的导入批次号，方便追溯
+   - 处理策略由duplicateStrategy字段决定（skip跳过/cover覆盖）
+5. **空数据处理**：若无错误或重复数据，errors和repeats均返回空数组[]
+6. **时间格式**：importTime采用"yyyy-MM-dd HH:mm:ss"格式
 
 **错误码：**
 
 |错误码|说明|
 |---|---|
-|2011|导入批次不存在|
+|3001|导入记录不存在|
 
 ---
 

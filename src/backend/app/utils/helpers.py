@@ -46,13 +46,90 @@ def validate_excel_file(file_path):
 
 def read_excel_data(file_path):
     """
-    读取Excel数据
+    读取Excel数据，自动检测并兼容单行表头和双行表头格式
+
+    支持的表头格式：
+    1. 单行表头：第一行即为完整的列名（精简版）
+    2. 双行表头：第二行才是完整的列名，第一行有合并单元格（原始版）
 
     返回: DataFrame or None
     """
     try:
-        df = pd.read_excel(file_path)
+        # 先读取前3行，检测表头格式
+        df_sample = pd.read_excel(file_path, header=None, nrows=3)
+
+        # 最关键的区分字段：项目交付-项目名称
+        # 精简版第一行包含此字段
+        # 原始版第一行列12-15是"当前项目交付工时"（重复），第二行才有完整字段名
+        critical_field = '项目交付-项目名称'
+
+        # 检测第一行是否包含关键字段
+        first_row_str = str(df_sample.iloc[0].tolist())
+        has_critical_in_first = critical_field in first_row_str
+
+        # 如果第一行包含"项目交付-项目名称"，说明是精简版（单行表头）
+        if has_critical_in_first:
+            # 单行表头格式，直接读取
+            df = pd.read_excel(file_path, header=0)
+            df.columns = [str(col).strip() for col in df.columns]
+
+            # 处理合并单元格导致的空值：使用前向填充
+            for col in df.columns:
+                if '部门' in col or col == '部门':
+                    # 先将空字符串替换为NaN，然后进行前向填充
+                    df[col] = df[col].replace('', pd.NA)
+                    df[col] = df[col].fillna(method='ffill')
+
+            return df
+
+        # 检测第二行是否包含关键字段（原始版双行表头）
+        second_row_str = str(df_sample.iloc[1].tolist())
+        has_critical_in_second = critical_field in second_row_str
+
+        if has_critical_in_second:
+            # 双行表头格式
+            # 使用openpyxl读取，避免pandas对合并单元格的处理问题
+            wb = load_workbook(file_path, read_only=True, data_only=True)
+            ws = wb.active
+
+            # 读取第二行作为列名
+            headers = []
+            for cell in ws[2]:  # 第二行
+                headers.append(str(cell.value).strip() if cell.value else f'列{cell.column}')
+
+            # 读取数据行（从第三行开始）
+            data = []
+            for row in ws.iter_rows(min_row=3, values_only=True):
+                data.append(list(row))
+
+            wb.close()
+
+            # 创建DataFrame
+            df = pd.DataFrame(data, columns=headers)
+
+            # 处理合并单元格导致的空值：使用前向填充
+            # 主要处理部门字段等可能合并的列
+            for col in df.columns:
+                if '部门' in col or col == '部门':
+                    # 先将空字符串替换为NaN，然后进行前向填充
+                    df[col] = df[col].replace('', pd.NA)
+                    df[col] = df[col].fillna(method='ffill')
+
+            return df
+
+        # 如果都不匹配，尝试默认读取第一行
+        df = pd.read_excel(file_path, header=0)
+        df.columns = [str(col).strip() for col in df.columns]
+
+        # 处理合并单元格导致的空值：使用前向填充
+        for col in df.columns:
+            if '部门' in col or col == '部门':
+                # 先将空字符串替换为NaN，然后进行前向填充
+                df[col] = df[col].replace('', pd.NA)
+                df[col] = df[col].fillna(method='ffill')
+
         return df
+
     except Exception as e:
         print(f"读取Excel失败: {str(e)}")
         return None
@@ -61,46 +138,61 @@ def validate_work_hour_row(row, required_fields):
     """
     验证工时数据行
 
-    返回: (is_valid, error_message)
+    返回: (is_valid, error_list)
+    error_list: [{'field': 'field_name', 'error': 'error_message'}, ...]
     """
     errors = []
 
     # 检查必填字段
     for field in required_fields:
         if pd.isna(row.get(field, '')) or str(row.get(field, '')).strip() == '':
-            errors.append(f"{field}字段为空")
+            errors.append({'field': field, 'error': f'{field}字段为空'})
 
     # 检查审批结果和状态
     approval_result = str(row.get('审批结果', '')).strip()
     approval_status = str(row.get('审批状态', '')).strip()
 
-    if approval_result != '通过':
-        errors.append(f"审批结果为'{approval_result}'，仅支持'通过'")
+    # 审批结果必须是"通过"或"审批通过"
+    if approval_result not in ['通过', '审批通过']:
+        errors.append({'field': '审批结果', 'error': f"审批结果为'{approval_result}'，仅支持'通过'或'审批通过'"})
 
-    if approval_status != '已完成':
-        errors.append(f"审批状态为'{approval_status}'，仅支持'已完成'")
+    # 审批状态必须是"已完成"或"已结束"
+    if approval_status not in ['已完成', '已结束']:
+        errors.append({'field': '审批状态', 'error': f"审批状态为'{approval_status}'，仅支持'已完成'或'已结束'"})
 
     # 检查工作时长
     try:
-        work_hours = float(row.get('项目交付-工作时长', 0))
+        work_val = row.get('项目交付-工作时长', 0)
+        # 处理空字符串、None、NaN等情况
+        if pd.isna(work_val) or str(work_val).strip() == '':
+            work_hours = 0.0
+        else:
+            work_hours = float(str(work_val).strip())
+
         if work_hours < 0:
-            errors.append("工作时长不能为负数")
-        if work_hours > 24:
-            errors.append("工作时长超过24小时")
-    except:
-        errors.append("工作时长格式错误")
+            errors.append({'field': '项目交付-工作时长', 'error': '工作时长不能为负数'})
+        if work_hours > 168:
+            errors.append({'field': '项目交付-工作时长', 'error': '工作时长超过168小时（一周最大时长）'})
+    except Exception as e:
+        errors.append({'field': '项目交付-工作时长', 'error': f'工作时长格式错误: {str(e)}'})
 
     # 检查加班时长
     try:
-        overtime_hours = float(row.get('项目交付-加班时长', 0))
+        overtime_val = row.get('项目交付-加班时长', 0)
+        # 处理空字符串、None、NaN等情况
+        if pd.isna(overtime_val) or str(overtime_val).strip() == '':
+            overtime_hours = 0.0
+        else:
+            overtime_hours = float(str(overtime_val).strip())
+
         if overtime_hours < 0:
-            errors.append("加班时长不能为负数")
-    except:
-        errors.append("加班时长格式错误")
+            errors.append({'field': '项目交付-加班时长', 'error': '加班时长不能为负数'})
+    except Exception as e:
+        errors.append({'field': '项目交付-加班时长', 'error': f'加班时长格式错误: {str(e)}'})
 
     if errors:
-        return False, '; '.join(errors)
-    return True, None
+        return False, errors
+    return True, []
 
 def calculate_date_range(start_date, end_date, max_days=90):
     """

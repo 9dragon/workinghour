@@ -58,7 +58,7 @@
         <el-table-column prop="deptName" label="部门" width="150" show-overflow-tooltip />
         <el-table-column prop="userName" label="人员" width="100" />
         <el-table-column prop="checkUser" label="执行人" width="100" />
-        <el-table-column prop="checkTime" label="核对时间" width="160" sortable />
+        <el-table-column prop="checkTime" label="核对时间" width="160" sortable class-name="sortable-column" />
         <el-table-column label="核对结果摘要" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <div v-if="row.checkType === 'integrity'">
@@ -89,7 +89,7 @@
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.size"
-          :page-sizes="[20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
@@ -224,7 +224,7 @@ const dateRange = ref([])
 
 const pagination = reactive({
   page: 1,
-  size: 20,
+  size: 10,
   total: 0
 })
 
@@ -364,5 +364,14 @@ onMounted(() => {
 
 .summary-value.danger {
   color: #F56C6C;
+}
+
+:deep(.sortable-column .cell) {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+:deep(.sortable-column .cell .caret-wrapper) {
+  margin-left: 4px;
 }
 </style>

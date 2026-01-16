@@ -113,16 +113,16 @@
         <el-table-column prop="serialNo" label="序号" width="100" />
         <el-table-column prop="deptName" label="部门" width="150" fixed />
         <el-table-column prop="userName" label="姓名" width="100" fixed />
-        <el-table-column prop="startTime" label="开始时间" width="160" sortable />
+        <el-table-column prop="startTime" label="开始时间" width="160" sortable class-name="sortable-column" />
         <el-table-column prop="endTime" label="结束时间" width="160" />
         <el-table-column prop="projectName" label="项目名称" width="200" show-overflow-tooltip />
         <el-table-column prop="projectManager" label="项目经理" width="100" />
-        <el-table-column prop="workHours" label="工作时长" width="100" align="right" sortable>
+        <el-table-column prop="workHours" label="工作时长" width="100" align="right" sortable class-name="sortable-column">
           <template #default="{ row }">
             <span>{{ row.workHours?.toFixed(1) || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="overtimeHours" label="加班时长" width="100" align="right" sortable>
+        <el-table-column prop="overtimeHours" label="加班时长" width="100" align="right" sortable class-name="sortable-column">
           <template #default="{ row }">
             <span>{{ row.overtimeHours?.toFixed(1) || '-' }}</span>
           </template>
@@ -136,7 +136,7 @@
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.size"
-          :page-sizes="[20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
@@ -169,7 +169,7 @@ const dateRange = ref([])
 
 const pagination = reactive({
   page: 1,
-  size: 20,
+  size: 10,
   total: 0
 })
 
@@ -324,5 +324,14 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+:deep(.sortable-column .cell) {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+:deep(.sortable-column .cell .caret-wrapper) {
+  margin-left: 4px;
 }
 </style>

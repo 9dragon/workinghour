@@ -21,10 +21,16 @@ class ImportRecord(db.Model):
     import_time = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
     report_path = db.Column(db.String(255))
     error_details = db.Column(db.Text)  # JSON格式存储错误详情
+    repeat_details = db.Column(db.Text)  # JSON格式存储重复数据详情
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
 
     def to_dict(self):
         """转换为字典"""
+        # 格式化时间为 yyyy-MM-dd HH:mm:ss
+        import_time_str = None
+        if self.import_time:
+            import_time_str = self.import_time.strftime('%Y-%m-%d %H:%M:%S')
+
         return {
             'id': self.id,
             'batchNo': self.batch_no,
@@ -34,5 +40,9 @@ class ImportRecord(db.Model):
             'repeatRows': self.repeat_rows,
             'invalidRows': self.invalid_rows,
             'importUser': self.import_user,
-            'importTime': self.import_time.isoformat() if self.import_time else None
+            'importTime': import_time_str,
+            'fileSize': self.file_size,
+            'duplicateStrategy': self.duplicate_strategy,
+            'errorDetails': self.error_details,
+            'repeatDetails': self.repeat_details
         }

@@ -136,7 +136,7 @@ export const getImportDetail = (batchNo) => {
     // 根据批次号生成错误详情
     const errorTemplates = [
       { row: 12, field: '开始时间', error: '时间格式错误，应为YYYY-MM-DD HH:mm:ss' },
-      { row: 25, field: '工作时长', error: '工作时长超过24小时，数据异常' },
+      { row: 25, field: '工作时长', error: '工作时长超过168小时（一周最大时长）' },
       { row: 38, field: '结束时间', error: '结束时间早于开始时间' },
       { row: 47, field: '项目名称', error: '项目名称不能为空' },
       { row: 52, field: '审批状态', error: '审批状态必须为"通过"或"驳回"' },

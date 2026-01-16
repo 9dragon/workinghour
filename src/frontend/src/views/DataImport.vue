@@ -77,26 +77,9 @@
           </div>
         </template>
         <template #extra>
-          <el-button v-if="importResult.batchNo" @click="handleViewReport">查看导入报告</el-button>
-          <el-button type="primary" @click="handleExportReport">导出报告</el-button>
+          <el-button v-if="importResult.batchNo" type="primary" @click="handleViewDetails">查看导入详情</el-button>
         </template>
       </el-result>
-    </el-card>
-
-    <!-- 导入报告 -->
-    <el-card v-if="importReport" class="report-card">
-      <template #header>
-        <div class="card-header">
-          <el-icon><Document /></el-icon>
-          <span>导入详情报告</span>
-        </div>
-      </template>
-
-      <el-table :data="importReport.errors" border stripe>
-        <el-table-column type="index" label="行号" width="80" align="center" />
-        <el-table-column prop="field" label="字段" width="120" />
-        <el-table-column prop="error" label="错误原因" />
-      </el-table>
     </el-card>
 
     <!-- 使用说明 -->
@@ -124,8 +107,11 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { importExcel } from '@/api'
+
+const router = useRouter()
 
 const uploadRef = ref(null)
 const selectedFile = ref(null)
@@ -187,6 +173,18 @@ const handleReset = () => {
   duplicateStrategy.value = 'skip'
   importResult.value = null
   importReport.value = null
+}
+
+const handleViewDetails = () => {
+  if (!importResult.value?.batchNo) {
+    ElMessage.warning('无法获取批次号')
+    return
+  }
+  // 跳转到导入记录页面，并通过 query 参数传递批次号
+  router.push({
+    name: 'ImportRecords',
+    query: { batchNo: importResult.value.batchNo, openDetail: 'true' }
+  })
 }
 
 const handleViewReport = () => {

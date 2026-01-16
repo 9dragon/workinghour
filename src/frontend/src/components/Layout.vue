@@ -1,12 +1,13 @@
 <template>
   <el-container class="layout-container">
-    <el-aside width="220px" class="layout-aside">
+    <el-aside :width="isCollapsed ? '64px' : '220px'" class="layout-aside">
       <div class="logo">
         <el-icon class="logo-icon"><DataBoard /></el-icon>
-        <span class="logo-text">工时统计系统</span>
+        <span v-show="!isCollapsed" class="logo-text">工时统计系统</span>
       </div>
       <el-menu
         :default-active="activeMenu"
+        :collapse="isCollapsed"
         @select="handleMenuSelect"
         class="layout-menu"
         background-color="#304156"
@@ -72,6 +73,10 @@
     <el-container class="layout-main">
       <el-header class="layout-header">
         <div class="header-left">
+          <el-icon class="hamburger-icon" @click="toggleSidebar">
+            <Expand v-if="isCollapsed" />
+            <Fold v-else />
+          </el-icon>
           <span class="page-title">{{ pageTitle }}</span>
         </div>
         <div class="header-right">
@@ -103,13 +108,15 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+
+const isCollapsed = ref(false)
 
 const activeMenu = computed(() => route.path)
 const pageTitle = computed(() => route.meta.title || '工时统计系统')
@@ -129,6 +136,10 @@ const handleMenuSelect = (index) => {
     router.push(index)
   }
 }
+
+const toggleSidebar = () => {
+  isCollapsed.value = !isCollapsed.value
+}
 </script>
 
 <style scoped>
@@ -141,25 +152,29 @@ const handleMenuSelect = (index) => {
   background-color: #304156;
   overflow-x: hidden;
   overflow-y: auto;
+  transition: width 0.3s ease;
 }
 
 .logo {
   display: flex;
   align-items: center;
+  justify-content: center;
   padding: 20px;
   background-color: #2b3a4b;
+  transition: padding 0.3s ease;
 }
 
 .logo-icon {
   font-size: 24px;
   color: #409EFF;
-  margin-right: 10px;
 }
 
 .logo-text {
   font-size: 18px;
   font-weight: 600;
   color: #fff;
+  margin-left: 10px;
+  white-space: nowrap;
 }
 
 .layout-menu {
@@ -177,6 +192,23 @@ const handleMenuSelect = (index) => {
   padding: 0 24px;
   background-color: #fff;
   box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hamburger-icon {
+  font-size: 20px;
+  cursor: pointer;
+  color: #606266;
+  transition: color 0.3s;
+}
+
+.hamburger-icon:hover {
+  color: #409EFF;
 }
 
 .header-left .page-title {

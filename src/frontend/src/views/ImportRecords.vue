@@ -41,7 +41,7 @@
         <el-table-column prop="batchNo" label="导入批次号" width="200" />
         <el-table-column prop="fileName" label="文件名" min-width="180" show-overflow-tooltip />
         <el-table-column prop="importUser" label="导入人" width="120" />
-        <el-table-column prop="importTime" label="导入时间" width="160" sortable />
+        <el-table-column prop="importTime" label="导入时间" width="160" sortable class-name="sortable-column" />
         <el-table-column prop="totalRows" label="总行数" width="100" align="center" />
         <el-table-column prop="successRows" label="成功" width="100" align="center">
           <template #default="{ row }">
@@ -58,16 +58,13 @@
             <span class="invalid-count">{{ row.invalidRows }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" align="center" fixed="right">
+        <el-table-column label="操作" width="160" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleViewData(row)">
               查看数据
             </el-button>
             <el-button type="primary" link size="small" @click="handleViewDetail(row)">
               查看详情
-            </el-button>
-            <el-button type="primary" link size="small" @click="handleDownloadReport(row)">
-              下载文件
             </el-button>
           </template>
         </el-table-column>
@@ -77,7 +74,7 @@
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.size"
-          :page-sizes="[20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
@@ -110,33 +107,128 @@
         </el-descriptions-item>
       </el-descriptions>
 
+      <!-- 无效数据详情 -->
       <div v-if="currentDetail && currentDetail.errors && currentDetail.errors.length > 0" style="margin-top: 20px">
-        <el-divider>无效数据详情</el-divider>
-        <el-table :data="currentDetail.errors" border stripe max-height="300">
+        <el-divider>无效数据详情（共 {{ currentDetail.errors.length }} 条）</el-divider>
+
+        <el-alert
+          type="info"
+          :closable="false"
+          style="margin-bottom: 12px"
+        >
+          以下为导入失败的数据详情，请根据行号和错误原因修改Excel文件后重新导入
+        </el-alert>
+
+        <el-table
+          :data="paginatedErrors"
+          border
+          stripe
+          max-height="400"
+          :default-sort="{ prop: 'row', order: 'ascending' }"
+        >
           <el-table-column type="index" label="序号" width="60" align="center" />
-          <el-table-column prop="row" label="行号" width="80" align="center" />
-          <el-table-column prop="field" label="字段" width="120" />
-          <el-table-column prop="error" label="错误原因" />
+          <el-table-column prop="row" label="Excel行号" width="100" align="center" sortable>
+            <template #default="{ row }">
+              <el-tag type="warning">{{ row.row }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="field" label="错误字段" width="180">
+            <template #default="{ row }">
+              <el-tag size="small" type="danger">{{ row.field }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="error" label="错误原因" min-width="300" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span style="color: #F56C6C">{{ row.error }}</span>
+            </template>
+          </el-table-column>
         </el-table>
+
+        <div class="error-pagination-wrapper">
+          <el-pagination
+            v-model:current-page="errorPagination.page"
+            v-model:page-size="errorPagination.size"
+            :page-sizes="[10, 20, 50, 100, 200]"
+            :total="currentDetail.errors.length"
+            layout="total, sizes, prev, pager, next, jumper"
+            small
+          />
+        </div>
+      </div>
+
+      <!-- 重复数据详情 -->
+      <div v-if="currentDetail && currentDetail.repeats && currentDetail.repeats.length > 0" style="margin-top: 20px">
+        <el-divider>重复数据详情（共 {{ currentDetail.repeats.length }} 条）</el-divider>
+
+        <el-alert
+          type="warning"
+          :closable="false"
+          style="margin-bottom: 12px"
+        >
+          以下为导入时检测到的重复数据，根据您选择的重复数据处理策略已进行处理
+        </el-alert>
+
+        <el-table
+          :data="paginatedRepeats"
+          border
+          stripe
+          max-height="400"
+          :default-sort="{ prop: 'row', order: 'ascending' }"
+        >
+          <el-table-column type="index" label="序号" width="60" align="center" />
+          <el-table-column prop="row" label="Excel行号" width="100" align="center" sortable>
+            <template #default="{ row }">
+              <el-tag type="warning">{{ row.row }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="field" label="类型" width="120">
+            <template #default="{ row }">
+              <el-tag size="small" type="warning">{{ row.field }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="error" label="重复数据说明" min-width="280" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span style="color: #E6A23C">{{ row.error }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="existing_batch" label="原批次号" width="180" show-overflow-tooltip>
+            <template #default="{ row }">
+              <el-tag size="small" type="info">{{ row.existing_batch }}</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="error-pagination-wrapper">
+          <el-pagination
+            v-model:current-page="repeatPagination.page"
+            v-model:page-size="repeatPagination.size"
+            :page-sizes="[10, 20, 50, 100, 200]"
+            :total="currentDetail.repeats.length"
+            layout="total, sizes, prev, pager, next, jumper"
+            small
+          />
+        </div>
+      </div>
+
+      <div v-if="(!currentDetail?.errors || currentDetail.errors.length === 0) && (!currentDetail?.repeats || currentDetail.repeats.length === 0)" style="margin-top: 20px">
+        <el-empty description="暂无错误或重复数据" :image-size="100" />
       </div>
 
       <template #footer>
         <el-button @click="detailDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="handleDownloadReport(currentRecord)">
-          下载文件
-        </el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getImportRecords, getImportDetail, downloadImportReport as apiDownloadReport } from '@/api'
+import { getImportRecords, getImportDetail } from '@/api'
 
 const router = useRouter()
+const route = useRoute()
 
 const loading = ref(false)
 const tableData = ref([])
@@ -152,8 +244,40 @@ const dateRange = ref([])
 
 const pagination = reactive({
   page: 1,
-  size: 20,
+  size: 10,
   total: 0
+})
+
+// 错误详情分页
+const errorPagination = reactive({
+  page: 1,
+  size: 10
+})
+
+// 重复数据详情分页
+const repeatPagination = reactive({
+  page: 1,
+  size: 10
+})
+
+// 计算当前页显示的错误数据
+const paginatedErrors = computed(() => {
+  if (!currentDetail.value || !currentDetail.value.errors) {
+    return []
+  }
+  const start = (errorPagination.page - 1) * errorPagination.size
+  const end = start + errorPagination.size
+  return currentDetail.value.errors.slice(start, end)
+})
+
+// 计算当前页显示的重复数据
+const paginatedRepeats = computed(() => {
+  if (!currentDetail.value || !currentDetail.value.repeats) {
+    return []
+  }
+  const start = (repeatPagination.page - 1) * repeatPagination.size
+  const end = start + repeatPagination.size
+  return currentDetail.value.repeats.slice(start, end)
 })
 
 const loadData = async () => {
@@ -198,8 +322,19 @@ const handlePageChange = () => {
 
 const handleViewDetail = async (row) => {
   currentRecord.value = row
+  // 重置错误分页和重复数据分页
+  errorPagination.page = 1
+  errorPagination.size = 10
+  repeatPagination.page = 1
+  repeatPagination.size = 10
   try {
     const res = await getImportDetail(row.batchNo)
+    console.log('导入详情响应:', res)
+    console.log('响应数据:', res.data)
+    console.log('错误详情:', res.data?.errors)
+    console.log('错误数量:', res.data?.errors?.length)
+    console.log('重复数据详情:', res.data?.repeats)
+    console.log('重复数据数量:', res.data?.repeats?.length)
     currentDetail.value = res.data
   } catch (error) {
     console.error('获取详情失败:', error)
@@ -211,26 +346,32 @@ const handleViewData = (row) => {
   router.push({ name: 'ImportDataView', params: { batchNo: row.batchNo } })
 }
 
-const handleDownloadReport = async (row) => {
-  try {
-    const res = await apiDownloadReport(row.batchNo)
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = row.fileName || `导入文件_${row.batchNo}.xlsx`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
-    ElMessage.success('文件下载成功')
-  } catch (error) {
-    console.error('下载文件失败:', error)
+onMounted(async () => {
+  await loadData()
+  // 检查是否需要自动打开详情对话框
+  const { batchNo, openDetail } = route.query
+  if (batchNo && openDetail === 'true') {
+    // 查找对应的记录
+    const record = tableData.value.find(item => item.batchNo === batchNo)
+    if (record) {
+      handleViewDetail(record)
+    } else {
+      // 如果当前页没有找到，可能需要查询其他页或直接通过批次号打开
+      currentRecord.value = { batchNo }
+      errorPagination.page = 1
+      errorPagination.size = 10
+      repeatPagination.page = 1
+      repeatPagination.size = 10
+      try {
+        const res = await getImportDetail(batchNo)
+        currentDetail.value = res.data
+        detailDialogVisible.value = true
+      } catch (error) {
+        console.error('获取详情失败:', error)
+        ElMessage.error('无法找到该导入记录')
+      }
+    }
   }
-}
-
-onMounted(() => {
-  loadData()
 })
 </script>
 
@@ -264,6 +405,14 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
+.error-pagination-wrapper {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+  border-top: 1px solid #EBEEF5;
+}
+
 .success-count {
   color: #67C23A;
   font-weight: 600;
@@ -277,5 +426,14 @@ onMounted(() => {
 .invalid-count {
   color: #F56C6C;
   font-weight: 600;
+}
+
+:deep(.sortable-column .cell) {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+:deep(.sortable-column .cell .caret-wrapper) {
+  margin-left: 4px;
 }
 </style>
