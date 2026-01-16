@@ -128,8 +128,6 @@
         </el-table-column>
         <el-table-column prop="workContent" label="工作内容" min-width="200" show-overflow-tooltip />
         <el-table-column prop="deptName" label="部门" width="120" />
-        <el-table-column prop="createTime" label="创建时间" width="160" />
-        <el-table-column prop="updateTime" label="更新时间" width="160" />
       </el-table>
 
       <div class="pagination-wrapper">

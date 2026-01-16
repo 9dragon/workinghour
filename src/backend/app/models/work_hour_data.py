@@ -20,11 +20,8 @@ class WorkHourData(db.Model):
     work_hours = db.Column(db.Float, nullable=False)
     overtime_hours = db.Column(db.Float, nullable=False, default=0)
     work_content = db.Column(db.String(500))
-    create_time = db.Column(db.DateTime)  # OA创建时间
-    current_leader = db.Column(db.String(50))
     approval_result = db.Column(db.String(10), nullable=False, default='通过')
     approval_status = db.Column(db.String(10), nullable=False, default='已完成')
-    update_time = db.Column(db.DateTime)  # OA更新时间
     dept_name = db.Column(db.String(50), nullable=False, index=True)
 
     # 系统扩展字段
