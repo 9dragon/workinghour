@@ -84,6 +84,9 @@ def _init_default_data():
         ('check.max_overtime', '4', 'number', 'check', '单日最大加班时长(小时)', 1),
         ('check.max_monthly_overtime', '80', 'number', 'check', '月度最大加班时长(小时)', 1),
         ('check.workdays', '[1,2,3,4,5]', 'json', 'check', '标准工作日(1-7,周一到周日)', 1),
+        ('system.file_retention_days', '7', 'number', 'system', '文件保留周期(天)', 1),
+        ('system.max_import_rows', '1000', 'number', 'system', '最大导入行数', 1),
+        ('system.max_file_size', '10', 'number', 'system', '最大文件大小(MB)', 1),
     ]
 
     for key, value, type_, category, desc, editable in default_configs:

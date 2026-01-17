@@ -44,8 +44,26 @@ def query_by_project():
                 return error_response(4001, error_msg), 400
 
             start = datetime.strptime(start_date, '%Y-%m-%d')
-            end = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-            query = query.filter(WorkHourData.start_time >= start, WorkHourData.start_time <= end)
+            end = datetime.strptime(end_date, '%Y-%m-%d')
+            # 完全包含逻辑：工时记录的开始时间和结束时间都必须在查询范围内
+            query = query.filter(WorkHourData.start_time >= start, WorkHourData.end_time <= end)
+
+        # 计算统计数据（在分页前）
+        from sqlalchemy import func
+        stats = query.with_entities(
+            func.count(WorkHourData.id).label('total'),
+            func.sum(WorkHourData.work_hours).label('total_work_hours'),
+            func.sum(WorkHourData.overtime_hours).label('total_overtime_hours')
+        ).first()
+
+        # 统计项目数和人员数
+        project_count = query.with_entities(
+            func.count(func.distinct(WorkHourData.project_name))
+        ).scalar()
+
+        user_count = query.with_entities(
+            func.count(func.distinct(WorkHourData.user_name))
+        ).scalar()
 
         # 排序
         order_col = getattr(WorkHourData, sort_by, WorkHourData.start_time)
@@ -64,7 +82,13 @@ def query_by_project():
             'total': pagination.total,
             'page': page,
             'size': size,
-            'totalPages': pagination.pages
+            'totalPages': pagination.pages,
+            'summary': {
+                'projectCount': project_count or 0,
+                'userCount': user_count or 0,
+                'totalWorkHours': float(stats.total_work_hours or 0),
+                'totalOvertimeHours': float(stats.total_overtime_hours or 0)
+            }
         })
 
     except Exception as e:
@@ -101,8 +125,26 @@ def query_by_organization():
                 return error_response(4001, error_msg), 400
 
             start = datetime.strptime(start_date, '%Y-%m-%d')
-            end = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-            query = query.filter(WorkHourData.start_time >= start, WorkHourData.start_time <= end)
+            end = datetime.strptime(end_date, '%Y-%m-%d')
+            # 完全包含逻辑：工时记录的开始时间和结束时间都必须在查询范围内
+            query = query.filter(WorkHourData.start_time >= start, WorkHourData.end_time <= end)
+
+        # 计算统计数据（在分页前）
+        from sqlalchemy import func
+        stats = query.with_entities(
+            func.count(WorkHourData.id).label('total'),
+            func.sum(WorkHourData.work_hours).label('total_work_hours'),
+            func.sum(WorkHourData.overtime_hours).label('total_overtime_hours')
+        ).first()
+
+        # 统计部门数和人员数
+        dept_count = query.with_entities(
+            func.count(func.distinct(WorkHourData.dept_name))
+        ).scalar()
+
+        user_count = query.with_entities(
+            func.count(func.distinct(WorkHourData.user_name))
+        ).scalar()
 
         # 排序
         order_col = getattr(WorkHourData, sort_by, WorkHourData.start_time)
@@ -121,7 +163,13 @@ def query_by_organization():
             'total': pagination.total,
             'page': page,
             'size': size,
-            'totalPages': pagination.pages
+            'totalPages': pagination.pages,
+            'summary': {
+                'deptCount': dept_count or 0,
+                'userCount': user_count or 0,
+                'totalWorkHours': float(stats.total_work_hours or 0),
+                'totalOvertimeHours': float(stats.total_overtime_hours or 0)
+            }
         })
 
     except Exception as e:

@@ -557,9 +557,12 @@ export const getDataDict = () => {
 export const backupData = () => {
   if (MOCK_MODE) {
     ElMessage.info('模拟数据备份')
-    return Promise.resolve()
+    // 模拟返回一个空blob
+    return Promise.resolve(new Blob(['mock backup data'], { type: 'application/x-sqlite3' }))
   }
-  return request.post('/system/backup', {})
+  return request.post('/system/backup', {}, {
+    responseType: 'blob'
+  })
 }
 
 // 数据恢复
@@ -568,7 +571,11 @@ export const restoreData = (formData) => {
     ElMessage.success('模拟数据恢复成功')
     return Promise.resolve({ code: 200, message: '恢复成功' })
   }
-  return request.post('/system/restore', formData)
+  return request.post('/system/restore', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
 }
 
 // 获取系统配置

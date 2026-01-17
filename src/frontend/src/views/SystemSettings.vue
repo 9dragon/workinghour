@@ -13,7 +13,7 @@
 
           <div class="backup-section">
             <el-alert title="提示" type="info" :closable="false" style="margin-bottom: 20px">
-              建议定期备份系统数据，以防数据丢失。备份文件为 SQL 脚本格式，可使用恢复功能进行数据还原。
+              建议定期备份系统数据，以防数据丢失。备份文件为 SQLite 数据库文件格式，可使用恢复功能进行数据还原。
             </el-alert>
 
             <div class="backup-actions">
@@ -23,7 +23,7 @@
                   <el-icon><Download /></el-icon>
                   执行备份
                 </el-button>
-                <p class="action-desc">将系统当前数据导出为 SQL 备份文件</p>
+                <p class="action-desc">将系统当前数据导出为 SQLite 数据库备份文件</p>
               </div>
 
               <el-divider />
@@ -35,7 +35,7 @@
                   :auto-upload="false"
                   :on-change="handleFileChange"
                   :limit="1"
-                  accept=".sql"
+                  accept=".db"
                   style="width: 100%"
                 >
                   <el-button type="warning">
@@ -54,7 +54,7 @@
                 >
                   开始恢复
                 </el-button>
-                <p class="action-desc">从 SQL 备份文件恢复系统数据（会覆盖当前数据）</p>
+                <p class="action-desc">从 SQLite 数据库备份文件恢复系统数据（会覆盖当前数据）</p>
               </div>
             </div>
           </div>
@@ -163,7 +163,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { backupData, restoreData } from '@/api'
+import { backupData, restoreData, getSystemConfig, updateSystemConfig } from '@/api'
 
 const backingUp = ref(false)
 const restoring = ref(false)
@@ -186,15 +186,14 @@ const systemInfo = reactive({
 const handleBackup = async () => {
   backingUp.value = true
   try {
-    const res = await backupData()
-    const blob = new Blob([res], { type: 'application/sql' })
+    const blob = await backupData()
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     const now = new Date()
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
     const timeStr = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
-    a.download = `workinghour_backup_${dateStr}_${timeStr}.sql`
+    a.download = `workinghour_backup_${dateStr}_${timeStr}.db`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -202,15 +201,16 @@ const handleBackup = async () => {
     ElMessage.success('备份成功，文件已下载')
   } catch (error) {
     console.error('备份失败:', error)
+    ElMessage.error('备份失败，请检查网络连接')
   } finally {
     backingUp.value = false
   }
 }
 
 const handleFileChange = (file) => {
-  const isSql = file.raw.type.includes('sql') || file.name.endsWith('.sql')
-  if (!isSql) {
-    ElMessage.error('仅支持 SQL 备份文件')
+  const isDb = file.raw.type.includes('sqlite') || file.raw.type.includes('db') || file.name.endsWith('.db')
+  if (!isDb) {
+    ElMessage.error('仅支持 SQLite 数据库备份文件(.db)')
     return
   }
   selectedBackupFile.value = file.raw
@@ -245,8 +245,18 @@ const confirmRestore = async () => {
   }
 }
 
-const handleSaveConfig = () => {
-  ElMessage.success('配置保存成功')
+const handleSaveConfig = async () => {
+  try {
+    const configs = [
+      { configKey: 'system.file_retention_days', configValue: systemConfig.fileRetentionDays.toString() },
+      { configKey: 'system.max_import_rows', configValue: systemConfig.maxImportRows.toString() },
+      { configKey: 'system.max_file_size', configValue: systemConfig.maxFileSize.toString() }
+    ]
+    await updateSystemConfig({ configs })
+    ElMessage.success('配置保存成功')
+  } catch (error) {
+    console.error('保存配置失败:', error)
+  }
 }
 
 const handleResetConfig = () => {
@@ -256,7 +266,27 @@ const handleResetConfig = () => {
   ElMessage.info('配置已重置')
 }
 
+const loadConfig = async () => {
+  try {
+    const res = await getSystemConfig({ category: 'system' })
+    const configs = res.data.system || []
+    configs.forEach(config => {
+      if (config.configKey === 'system.file_retention_days') {
+        systemConfig.fileRetentionDays = Number(config.configValue)
+      } else if (config.configKey === 'system.max_import_rows') {
+        systemConfig.maxImportRows = Number(config.configValue)
+      } else if (config.configKey === 'system.max_file_size') {
+        systemConfig.maxFileSize = Number(config.configValue)
+      }
+    })
+  } catch (error) {
+    console.error('加载配置失败:', error)
+  }
+}
+
 onMounted(() => {
+  // 加载系统配置
+  loadConfig()
   // 更新服务器时间
   setInterval(() => {
     systemInfo.serverTime = new Date().toLocaleString('zh-CN')

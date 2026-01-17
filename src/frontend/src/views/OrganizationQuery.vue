@@ -34,7 +34,25 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="时间范围">
+        <el-form-item>
+          <template #label>
+            <span>时间范围</span>
+            <el-tooltip
+              effect="dark"
+              placement="bottom"
+            >
+              <template #content>
+                <div style="line-height: 1.8;">
+                  <div style="font-weight: 600; margin-bottom: 4px;">⚠️ 时间范围筛选说明</div>
+                  <div>仅显示<strong>开始时间和结束时间</strong>都在时间范围内的工时记录</div>
+                  <div style="margin-top: 8px; color: #ffd700;">请确保筛选时间范围与工时报工范围相匹配</div>
+                </div>
+              </template>
+              <el-icon style="margin-left: 4px; cursor: help; color: #409EFF; vertical-align: middle;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+          </template>
           <el-date-picker
             v-model="dateRange"
             type="daterange"
@@ -45,27 +63,12 @@
             style="width: 260px"
           />
         </el-form-item>
-        <el-form-item label="排序">
-          <el-select v-model="filterForm.sortBy" placeholder="请选择排序方式" style="width: 150px">
-            <el-option label="开始时间" value="startTime" />
-            <el-option label="工作时长" value="workHours" />
-            <el-option label="加班时长" value="overtimeHours" />
-          </el-select>
-          <el-select v-model="filterForm.sortOrder" style="width: 100px; margin-left: 8px">
-            <el-option label="降序" value="desc" />
-            <el-option label="升序" value="asc" />
-          </el-select>
-        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleQuery">
             <el-icon><Search /></el-icon>
             查询
           </el-button>
           <el-button @click="handleReset">重置</el-button>
-          <el-button type="success" @click="handleExport">
-            <el-icon><Download /></el-icon>
-            导出结果
-          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -87,14 +90,14 @@
         </el-col>
         <el-col :span="6">
           <div class="summary-item">
-            <div class="summary-label">总工作时长</div>
-            <div class="summary-value highlight">{{ summaryData.totalWorkHours.toFixed(1) }}</div>
+            <div class="summary-label">总工作人天</div>
+            <div class="summary-value highlight">{{ ((summaryData.totalWorkHours || 0) / 8).toFixed(1) }}</div>
           </div>
         </el-col>
         <el-col :span="6">
           <div class="summary-item">
-            <div class="summary-label">总加班时长</div>
-            <div class="summary-value warning">{{ summaryData.totalOvertimeHours.toFixed(1) }}</div>
+            <div class="summary-label">总加班人天</div>
+            <div class="summary-value warning">{{ ((summaryData.totalOvertimeHours || 0) / 8).toFixed(1) }}</div>
           </div>
         </el-col>
       </el-row>
@@ -106,28 +109,26 @@
         :data="tableData"
         border
         stripe
-        :default-sort="{ prop: 'startTime', order: 'descending' }"
-        height="calc(100vh - 420px)"
+        height="calc(100vh - 360px)"
       >
-        <el-table-column type="index" label="序号" width="60" fixed />
-        <el-table-column prop="serialNo" label="序号" width="100" />
-        <el-table-column prop="deptName" label="部门" width="150" fixed />
-        <el-table-column prop="userName" label="姓名" width="100" fixed />
-        <el-table-column prop="startTime" label="开始时间" width="160" sortable class-name="sortable-column" />
-        <el-table-column prop="endTime" label="结束时间" width="160" />
-        <el-table-column prop="projectName" label="项目名称" width="200" show-overflow-tooltip />
-        <el-table-column prop="projectManager" label="项目经理" width="100" />
-        <el-table-column prop="workHours" label="工作时长" width="100" align="right" sortable class-name="sortable-column">
+        <el-table-column type="index" label="序号" width="60" />
+        <el-table-column prop="deptName" label="部门" width="120" />
+        <el-table-column prop="userName" label="姓名" width="90" />
+        <el-table-column prop="startTime" label="开始时间" width="130" />
+        <el-table-column prop="endTime" label="结束时间" width="130" />
+        <el-table-column prop="projectName" label="项目名称" width="150" show-overflow-tooltip />
+        <el-table-column prop="projectManager" label="项目经理" width="90" />
+        <el-table-column prop="workHours" label="工作时长" width="90" align="right">
           <template #default="{ row }">
             <span>{{ row.workHours?.toFixed(1) || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="overtimeHours" label="加班时长" width="100" align="right" sortable class-name="sortable-column">
+        <el-table-column prop="overtimeHours" label="加班时长" width="90" align="right">
           <template #default="{ row }">
             <span>{{ row.overtimeHours?.toFixed(1) || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="workContent" label="工作内容" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="workContent" label="工作内容" min-width="120" show-overflow-tooltip />
       </el-table>
 
       <div class="pagination-wrapper">
@@ -147,8 +148,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { queryByOrganization, exportQueryResult, getDataDict } from '@/api'
+import { QuestionFilled } from '@element-plus/icons-vue'
+import { queryByOrganization, getDataDict } from '@/api'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -158,9 +159,7 @@ const userList = ref([])
 
 const filterForm = reactive({
   deptName: '',
-  userName: '',
-  sortBy: 'startTime',
-  sortOrder: 'desc'
+  userName: ''
 })
 
 const dateRange = ref([])
@@ -190,9 +189,7 @@ const loadData = async () => {
       deptName: filterForm.deptName,
       userName: filterForm.userName,
       startDate: dateRange.value?.[0],
-      endDate: dateRange.value?.[1],
-      sortBy: filterForm.sortBy,
-      sortOrder: filterForm.sortOrder
+      endDate: dateRange.value?.[1]
     }
     const res = await queryByOrganization(params)
     tableData.value = res.data.list || []
@@ -213,8 +210,6 @@ const handleQuery = () => {
 const handleReset = () => {
   filterForm.deptName = ''
   filterForm.userName = ''
-  filterForm.sortBy = 'startTime'
-  filterForm.sortOrder = 'desc'
   dateRange.value = []
   pagination.page = 1
   loadData()
@@ -226,35 +221,6 @@ const handleSizeChange = () => {
 
 const handlePageChange = () => {
   loadData()
-}
-
-const handleExport = async () => {
-  try {
-    const params = {
-      dimension: 'organization',
-      deptName: filterForm.deptName,
-      userName: filterForm.userName,
-      startDate: dateRange.value?.[0],
-      endDate: dateRange.value?.[1],
-      sortBy: filterForm.sortBy,
-      sortOrder: filterForm.sortOrder
-    }
-    const res = await exportQueryResult(params)
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const now = new Date()
-    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
-    a.download = `工时查询结果_组织维度_${dateStr}.xlsx`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
-    ElMessage.success('导出成功')
-  } catch (error) {
-    console.error('导出失败:', error)
-  }
 }
 
 onMounted(() => {
@@ -280,19 +246,19 @@ onMounted(() => {
 
 .summary-item {
   text-align: center;
-  padding: 16px;
+  padding: 10px;
   background-color: #f5f7fa;
   border-radius: 4px;
 }
 
 .summary-label {
-  font-size: 14px;
+  font-size: 13px;
   color: #909399;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .summary-value {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #303133;
 }
@@ -322,14 +288,5 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
-}
-
-:deep(.sortable-column .cell) {
-  white-space: nowrap;
-  overflow: visible;
-}
-
-:deep(.sortable-column .cell .caret-wrapper) {
-  margin-left: 4px;
 }
 </style>

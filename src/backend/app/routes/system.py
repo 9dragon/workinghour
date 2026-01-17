@@ -83,13 +83,20 @@ def update_system_config():
 @system_bp.route('/system/backup', methods=['POST'])
 @auth_required
 def backup_database():
-    """备份数据库"""
+    """备份数据库并返回文件下载"""
     try:
-        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'app.db')
-        backup_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backups')
+        from config import Config
+
+        # 使用配置文件中的数据库路径
+        db_path = Config.DATABASE_PATH
+        backup_dir = os.path.join(Config.BASE_DIR, 'backups')
 
         # 创建备份目录
         os.makedirs(backup_dir, exist_ok=True)
+
+        # 检查数据库文件是否存在
+        if not os.path.exists(db_path):
+            return error_response(6004, f'数据库文件不存在: {db_path}'), 404
 
         # 生成备份文件名
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -99,15 +106,13 @@ def backup_database():
         # 复制数据库文件
         shutil.copy2(db_path, backup_path)
 
-        # 获取文件大小
-        file_size = os.path.getsize(backup_path)
-
-        return success_response(data={
-            'filename': backup_filename,
-            'filePath': backup_path,
-            'fileSize': file_size,
-            'backupTime': datetime.now().isoformat()
-        }, message='备份成功')
+        # 返回文件供下载
+        return send_file(
+            backup_path,
+            mimetype='application/x-sqlite3',
+            as_attachment=True,
+            download_name=backup_filename
+        )
 
     except Exception as e:
         return error_response(500, str(e), http_status=500)
@@ -116,31 +121,49 @@ def backup_database():
 @system_bp.route('/system/restore', methods=['POST'])
 @auth_required
 def restore_database():
-    """恢复数据库"""
+    """从上传的文件恢复数据库"""
     try:
-        data = request.get_json()
-        backup_filename = data.get('filename')
+        from config import Config
 
-        if not backup_filename:
-            return error_response(6001, '未指定备份文件'), 400
+        # 检查是否有上传的文件
+        if 'file' not in request.files:
+            return error_response(6001, '未上传备份文件'), 400
 
-        backup_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backups')
-        backup_path = os.path.join(backup_dir, backup_filename)
+        file = request.files['file']
+        if file.filename == '':
+            return error_response(6001, '未上传备份文件'), 400
 
-        if not os.path.exists(backup_path):
-            return error_response(6002, '备份文件不存在'), 404
+        # 验证文件扩展名
+        if not file.filename.endswith('.db'):
+            return error_response(6003, '备份文件格式错误，仅支持.db文件'), 400
 
-        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'app.db')
+        # 保存上传的文件到临时位置
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as tmp_file:
+            file.save(tmp_file.name)
+            tmp_path = tmp_file.name
+
+        # 使用配置文件中的数据库路径
+        db_path = Config.DATABASE_PATH
+        backup_dir = os.path.join(Config.BASE_DIR, 'backups')
+        os.makedirs(backup_dir, exist_ok=True)
+
+        # 检查当前数据库是否存在
+        if not os.path.exists(db_path):
+            return error_response(6005, '当前数据库文件不存在，无法恢复'), 404
 
         # 先备份当前数据库
         current_backup = os.path.join(backup_dir, f'before_restore_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db')
         shutil.copy2(db_path, current_backup)
 
         # 恢复数据库
-        shutil.copy2(backup_path, db_path)
+        shutil.copy2(tmp_path, db_path)
+
+        # 删除临时文件
+        os.unlink(tmp_path)
 
         return success_response(data={
-            'restoredFrom': backup_filename,
+            'restoredFrom': file.filename,
             'previousBackup': os.path.basename(current_backup),
             'restoreTime': datetime.now().isoformat()
         }, message='恢复成功')
@@ -153,7 +176,8 @@ def restore_database():
 def list_backups():
     """获取备份文件列表"""
     try:
-        backup_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backups')
+        from config import Config
+        backup_dir = os.path.join(Config.BASE_DIR, 'backups')
 
         if not os.path.exists(backup_dir):
             return success_response(data=[])
@@ -182,7 +206,8 @@ def list_backups():
 def get_system_info():
     """获取系统信息"""
     try:
-        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'app.db')
+        from config import Config
+        db_path = Config.DATABASE_PATH
 
         # 获取数据库大小
         db_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
@@ -202,7 +227,7 @@ def get_system_info():
         ).first()
 
         # 获取备份文件数量
-        backup_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backups')
+        backup_dir = os.path.join(Config.BASE_DIR, 'backups')
         backup_count = len([f for f in os.listdir(backup_dir)]) if os.path.exists(backup_dir) else 0
 
         return success_response(data={

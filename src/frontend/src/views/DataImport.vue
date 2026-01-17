@@ -22,7 +22,7 @@
           <el-icon class="upload-icon"><UploadFilled /></el-icon>
           <div class="upload-text">
             <p class="upload-tip">将文件拖到此处，或<em>点击上传</em></p>
-            <p class="upload-limit">仅支持 .xlsx 或 .xls 格式，文件大小不超过 10MB</p>
+            <p class="upload-limit">仅支持 .xlsx 或 .xls 格式，文件大小不超过 {{ maxFileSize }}MB</p>
           </div>
         </el-upload>
 
@@ -95,7 +95,7 @@
         <ul class="help-list">
           <li>仅导入审批结果为"通过"且审批状态为"已完成"的记录</li>
           <li>数据唯一性标识：序号 + 姓名 + 开始时间 + 项目名称</li>
-          <li>单次导入最多 1000 行数据</li>
+          <li>单次导入最多 {{ maxImportRows }} 行数据</li>
           <li>文件内容需包含预设的 15 个字段，字段名称需与系统一致</li>
           <li>日期格式支持：yyyy-MM-dd HH:mm:ss 或 yyyy-MM-dd</li>
           <li>工作时长支持 1 位小数，且必须 >= 0</li>
@@ -106,10 +106,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { importExcel } from '@/api'
+import { importExcel, getSystemConfig } from '@/api'
 
 const router = useRouter()
 
@@ -119,6 +119,8 @@ const duplicateStrategy = ref('skip')
 const importing = ref(false)
 const importResult = ref(null)
 const importReport = ref(null)
+const maxImportRows = ref(1000)
+const maxFileSize = ref(10)
 
 const handleFileChange = (file) => {
   const isExcel = file.raw.type.includes('spreadsheet') ||
@@ -129,9 +131,9 @@ const handleFileChange = (file) => {
     uploadRef.value?.clearFiles()
     return
   }
-  const isLt10M = file.size / 1024 / 1024 < 10
-  if (!isLt10M) {
-    ElMessage.error('文件大小不能超过 10MB')
+  const isLtMax = file.size / 1024 / 1024 < maxFileSize.value
+  if (!isLtMax) {
+    ElMessage.error(`文件大小不能超过 ${maxFileSize.value}MB`)
     uploadRef.value?.clearFiles()
     return
   }
@@ -195,6 +197,26 @@ const handleViewReport = () => {
 const handleExportReport = () => {
   ElMessage.info('导出报告')
 }
+
+const loadSystemConfig = async () => {
+  try {
+    const res = await getSystemConfig({ category: 'system' })
+    const configs = res.data.system || []
+    configs.forEach(config => {
+      if (config.configKey === 'system.max_import_rows') {
+        maxImportRows.value = Number(config.configValue)
+      } else if (config.configKey === 'system.max_file_size') {
+        maxFileSize.value = Number(config.configValue)
+      }
+    })
+  } catch (error) {
+    console.error('加载系统配置失败:', error)
+  }
+}
+
+onMounted(() => {
+  loadSystemConfig()
+})
 </script>
 
 <style scoped>
