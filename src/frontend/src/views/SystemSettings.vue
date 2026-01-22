@@ -249,8 +249,8 @@ const handleSaveConfig = async () => {
   try {
     const configs = [
       { configKey: 'system.file_retention_days', configValue: systemConfig.fileRetentionDays.toString() },
-      { configKey: 'system.max_import_rows', configValue: systemConfig.maxImportRows.toString() },
-      { configKey: 'system.max_file_size', configValue: systemConfig.maxFileSize.toString() }
+      { configKey: 'import.max_rows', configValue: systemConfig.maxImportRows.toString() },
+      { configKey: 'import.max_file_size', configValue: systemConfig.maxFileSize.toString() }
     ]
     await updateSystemConfig({ configs })
     ElMessage.success('配置保存成功')
@@ -268,14 +268,22 @@ const handleResetConfig = () => {
 
 const loadConfig = async () => {
   try {
-    const res = await getSystemConfig({ category: 'system' })
-    const configs = res.data.system || []
-    configs.forEach(config => {
+    // 加载 system 分类的配置
+    const resSystem = await getSystemConfig({ category: 'system' })
+    const systemConfigs = resSystem.data.system || []
+    systemConfigs.forEach(config => {
       if (config.configKey === 'system.file_retention_days') {
         systemConfig.fileRetentionDays = Number(config.configValue)
-      } else if (config.configKey === 'system.max_import_rows') {
+      }
+    })
+
+    // 加载 import 分类的配置
+    const resImport = await getSystemConfig({ category: 'import' })
+    const importConfigs = resImport.data.import || []
+    importConfigs.forEach(config => {
+      if (config.configKey === 'import.max_rows') {
         systemConfig.maxImportRows = Number(config.configValue)
-      } else if (config.configKey === 'system.max_file_size') {
+      } else if (config.configKey === 'import.max_file_size') {
         systemConfig.maxFileSize = Number(config.configValue)
       }
     })
