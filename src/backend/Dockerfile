@@ -34,7 +34,7 @@ EXPOSE 8000
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/api/health')" || exit 1
+    CMD python -c "from urllib.request import urlopen; urlopen('http://localhost:8000/api/v1/health', timeout=5)" || exit 1
 
 # 使用 gunicorn 启动应用
 CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "run:app"]

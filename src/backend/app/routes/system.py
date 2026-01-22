@@ -14,6 +14,12 @@ import shutil
 system_bp = Blueprint('system', __name__)
 
 
+@system_bp.route('/health', methods=['GET'])
+def health_check():
+    """健康检查端点（无需认证）"""
+    return success_response(data={'status': 'healthy', 'service': 'workinghour-backend'})
+
+
 @system_bp.route('/system/config', methods=['GET'])
 def get_system_config():
     """获取系统配置"""

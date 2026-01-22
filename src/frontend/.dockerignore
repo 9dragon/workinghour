@@ -27,7 +27,6 @@ dist-ssr/
 # Docker
 Dockerfile
 .dockerignore
-nginx.conf
 
 # 测试
 coverage/
