@@ -20,6 +20,9 @@ RUN npm run build
 # 阶段2: 生产阶段 - 使用 nginx 提供静态文件
 FROM nginx:alpine
 
+# 安装 wget 用于健康检查
+RUN apk add --no-cache wget
+
 # 复制自定义 nginx 配置
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

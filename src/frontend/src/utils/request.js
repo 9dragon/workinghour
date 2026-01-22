@@ -7,8 +7,9 @@ const MOCK_MODE = false
 
 // 创建 axios 实例
 const request = axios.create({
-  // 添加版本前缀 /api/v1，确保与API设计文档一致
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
+  // 开发环境使用 http://localhost:8000/api/v1（通过 .env.development 配置）
+  // 生产环境使用相对路径 /api/v1（通过 nginx 反向代理到后端）
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 30000
 })
 
