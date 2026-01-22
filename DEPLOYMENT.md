@@ -1,471 +1,389 @@
-# 部署脚本使用说明
+# 部署文档
 
-本目录包含两个自动化部署脚本，分别用于 Linux/Unix 和 Windows 系统。
+本文档说明如何使用 Docker Compose 在远程服务器上部署项目工时统计系统。
 
-## 📋 目录
+## 目录
 
-- [Linux/macOS 部署 (deploy.sh)](#linuxmacos-部署-deploysh)
-- [Windows 部署 (deploy.ps1)](#windows-部署-deployps1)
-- [部署前准备](#部署前准备)
-- [常见问题](#常见问题)
+- [环境要求](#环境要求)
+- [快速开始](#快速开始)
+- [详细部署步骤](#详细部署步骤)
+- [服务管理](#服务管理)
+- [故障排查](#故障排查)
+- [数据备份](#数据备份)
 
----
+## 环境要求
 
-## Linux/macOS 部署 (deploy.sh)
+### 服务器要求
 
-### 使用前准备
+- **操作系统**: Linux (推荐 Ubuntu 20.04+ / CentOS 7+)
+- **内存**: 最小 2GB，推荐 4GB+
+- **磁盘**: 最小 10GB 可用空间
+- **CPU**: 最小 2 核
 
-1. **修改脚本中的配置**
-   ```bash
-   # 编辑 deploy.sh，修改以下变量：
-   GITHUB_REPO="https://github.com/yourusername/workinghour.git"  # 改为你的仓库地址
-   ```
+### 软件要求
 
-2. **赋予执行权限**
-   ```bash
-   chmod +x deploy.sh
-   ```
+- **Docker**: 20.10+
+- **Docker Compose**: 2.0+
 
-### 首次部署
+### 端口要求
+
+| 端口 | 用途 | 说明 |
+|------|------|------|
+| 80 | 前端服务 | HTTP 访问 |
+| 8000 | 后端 API | 由 Docker 内部网络访问，无需开放 |
+
+## 快速开始
 
 ```bash
-./deploy.sh init
+# 1. 克隆代码
+git clone <repository-url> workinghour
+cd workinghour
+
+# 2. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，修改密钥等配置
+
+# 3. 启动服务
+docker-compose up -d
+
+# 4. 查看服务状态
+docker-compose ps
 ```
 
-**脚本将自动完成：**
-- ✅ 从 GitHub 拉取代码
-- ✅ 创建 Python 虚拟环境并安装依赖
-- ✅ 安装 Node.js 依赖并构建前端
-- ✅ 创建并初始化 SQLite 数据库
-- ✅ 配置 Systemd 服务
-- ✅ 配置 Nginx 反向代理
-- ✅ 启动所有服务
+访问 `http://<your-server-ip>` 即可使用系统。
 
-### 更新部署
+## 详细部署步骤
+
+### 1. 安装 Docker 和 Docker Compose
+
+#### Ubuntu/Debian
 
 ```bash
+# 安装 Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# 启动 Docker 服务
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# 将当前用户加入 docker 组（可选，避免每次 sudo）
+sudo usermod -aG docker $USER
+newgrp docker
+
+# 安装 Docker Compose
+sudo apt-get update
+sudo apt-get install docker-compose-plugin
+```
+
+#### CentOS/RHEL
+
+```bash
+# 安装 Docker
+sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo yum install docker-ce docker-ce-cli containerd.io
+
+# 启动 Docker 服务
+sudo systemctl start docker
+sudo systemctl enable docker
+```
+
+### 2. 准备项目文件
+
+```bash
+# 克隆项目
+git clone <repository-url> workinghour
+cd workinghour
+
+# 配置环境变量
+cp .env.example .env
+nano .env  # 或使用 vim 编辑
+```
+
+**重要配置项:**
+
+```bash
+# 必须修改的密钥（生成随机字符串）
+SECRET_KEY=$(openssl rand -hex 32)
+JWT_SECRET_KEY=$(openssl rand -hex 32)
+
+# 根据实际域名修改 CORS_ORIGINS
+CORS_ORIGINS=http://your-domain.com,https://your-domain.com
+```
+
+### 3. 构建和启动服务
+
+```bash
+# 构建镜像
+docker-compose build
+
+# 启动服务（后台运行）
+docker-compose up -d
+
+# 查看启动日志
+docker-compose logs -f
+
+# 确认服务状态
+docker-compose ps
+```
+
+### 4. 验证部署
+
+```bash
+# 检查前端健康状态
+curl http://localhost/health
+
+# 检查后端健康状态
+curl http://localhost:8000/api/health
+
+# 或者使用部署脚本
+./deploy.sh health
+```
+
+## 服务管理
+
+### 启动服务
+
+```bash
+# 启动所有服务
+docker-compose up -d
+
+# 启动指定服务
+docker-compose up -d backend
+docker-compose up -d frontend
+```
+
+### 停止服务
+
+```bash
+# 停止所有服务
+docker-compose stop
+
+# 停止指定服务
+docker-compose stop backend
+```
+
+### 重启服务
+
+```bash
+# 重启所有服务
+docker-compose restart
+
+# 重启指定服务
+docker-compose restart backend
+```
+
+### 查看日志
+
+```bash
+# 查看所有服务日志
+docker-compose logs -f
+
+# 查看指定服务日志
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# 查看最近 100 行日志
+docker-compose logs --tail=100 backend
+```
+
+### 更新服务
+
+```bash
+# 拉取最新代码
+git pull
+
+# 重新构建并启动
+docker-compose up -d --build
+
+# 或者使用部署脚本
 ./deploy.sh update
 ```
 
-**脚本将自动完成：**
-- ✅ 备份数据库和配置文件
-- ✅ 拉取最新代码
-- ✅ 更新 Python 和 Node.js 依赖
-- ✅ 重新构建前后端
-- ✅ 重启服务
-
-### 回滚版本
+### 清理服务
 
 ```bash
-# 查看提交历史
-git log --oneline
+# 停止并删除容器
+docker-compose down
 
-# 回滚到指定版本
-./deploy.sh rollback abc1234
+# 删除容器和数据卷（谨慎操作！）
+docker-compose down -v
+
+# 清理未使用的镜像
+docker image prune -a
 ```
 
-### 查看系统状态
+## 故障排查
+
+### 服务无法启动
 
 ```bash
-./deploy.sh status
+# 查看详细日志
+docker-compose logs backend
+docker-compose logs frontend
+
+# 检查容器状态
+docker-compose ps
+
+# 进入容器调试
+docker-compose exec backend /bin/bash
+docker-compose exec frontend /bin/sh
 ```
 
-### 常用运维命令
+### 端口冲突
+
+如果 80 端口被占用，修改 `docker-compose.yml`:
+
+```yaml
+services:
+  frontend:
+    ports:
+      - "8080:80"  # 使用 8080 端口
+```
+
+### 数据库问题
 
 ```bash
-# 查看后端日志
-sudo journalctl -u workinghour -f
+# 检查数据库文件
+docker-compose exec backend ls -lh /app/instance/
 
-# 重启后端服务
-sudo systemctl restart workinghour
-
-# 重启 Nginx
-sudo systemctl restart nginx
-
-# 查看服务状态
-sudo systemctl status workinghour
+# 重置数据库（危险操作！）
+docker-compose down -v
+docker-compose up -d
 ```
 
----
+### 健康检查失败
 
-## Windows 部署 (deploy.ps1)
-
-### 使用前准备
-
-1. **以管理员身份运行 PowerShell**
-   - 右键点击 PowerShell 图标
-   - 选择"以管理员身份运行"
-
-2. **允许执行脚本**
-   ```powershell
-   Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-   ```
-
-3. **修改脚本中的配置**
-   ```powershell
-   # 编辑 deploy.ps1，修改以下变量：
-   $script:GITHUB_REPO = "https://github.com/yourusername/workinghour.git"
-   ```
-
-### 首次部署
-
-```powershell
-.\deploy.ps1 init
+```bash
+# 查看健康检查状态
+docker inspect --format='{{.State.Health.Status}}' workinghour-backend
+docker inspect --format='{{.State.Health.Status}}' workinghour-frontend
 ```
 
-**脚本将自动完成：**
-- ✅ 从 GitHub 拉取代码
-- ✅ 创建 Python 虚拟环境并安装依赖
-- ✅ 安装 Node.js 依赖并构建前端
-- ✅ 创建并初始化 SQLite 数据库
-- ✅ 创建 Windows 服务 (需要安装 NSSM)
-- ✅ 配置 IIS 站点 (如果已安装)
+### 内存不足
 
-### 更新部署
-
-```powershell
-.\deploy.ps1 update
+```bash
+# 限制容器内存使用（在 docker-compose.yml 中添加）
+services:
+  backend:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 ```
 
-### 回滚版本
+## 数据备份
 
-```powershell
-# 查看提交历史
-git log --oneline
+### 备份数据库
 
-# 回滚到指定版本
-.\deploy.ps1 rollback abc1234
+```bash
+# 创建备份目录
+mkdir -p backups
+
+# 备份数据库
+docker-compose exec backend cp /app/instance/workinghour.db /app/backups/workinghour_$(date +%Y%m%d_%H%M%S).db
+
+# 从容器复制到主机
+docker cp workinghour-backend:/app/backups ./backups/
 ```
 
-### 查看系统状态
+### 恢复数据库
 
-```powershell
-.\deploy.ps1 status
-```
+```bash
+# 停止服务
+docker-compose stop backend
 
-### 常用运维命令
-
-```powershell
-# 查看服务状态
-Get-Service WorkingHourBackend
+# 复制备份文件到容器
+docker cp backups/workinghour_20250122_120000.db workinghour-backend:/app/instance/workinghour.db
 
 # 启动服务
-Start-Service WorkingHourBackend
-
-# 停止服务
-Stop-Service WorkingHourBackend
-
-# 重启服务
-Restart-Service WorkingHourBackend
-
-# 查看事件日志
-Get-EventLog -LogName Application -Source WorkingHourBackend -Newest 50
+docker-compose start backend
 ```
 
----
-
-## 部署前准备
-
-### Linux/macOS 系统要求
-
-- **操作系统**: Ubuntu 20.04+ / Debian 10+ / CentOS 7+ / macOS 10.15+
-- **Git**: 2.0+
-- **Python**: 3.8+
-- **Node.js**: 18+
-- **Nginx**: 1.18+
-- **Systemd**: 已启用
-
-### Windows 系统要求
-
-- **操作系统**: Windows 10/11 或 Windows Server 2016+
-- **Git**: 2.0+
-- **Python**: 3.8+
-- **Node.js**: 18+
-- **IIS**: 可选，用于托管前端
-- **NSSM**: 可选，用于创建 Windows 服务
-
-### 安装依赖 (Linux)
+### 定期备份（使用 cron）
 
 ```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install -y git python3 python3-venv nodejs npm nginx
+# 编辑 crontab
+crontab -e
 
-# CentOS/RHEL
-sudo yum install -y git python3 python3-venv nodejs npm nginx
-
-# macOS
-brew install git python node nginx
+# 添加每日备份任务（每天凌晨 2 点）
+0 2 * * * cd /path/to/workinghour && ./deploy.sh backup
 ```
 
-### 安装依赖 (Windows)
+## 生产环境建议
 
-1. **Git**: https://git-scm.com/download/win
-2. **Python**: https://www.python.org/downloads/
-3. **Node.js**: https://nodejs.org/
-4. **IIS**: 通过"启用或关闭 Windows 功能"安装
-5. **NSSM** (可选): https://nssm.cc/download
+### 1. 配置 HTTPS
 
----
-
-## 配置说明
-
-### 后端配置 (.env)
-
-首次部署后，需要修改以下配置：
+使用 Nginx 反向代理 + Let's Encrypt:
 
 ```bash
-# 编辑后端配置文件
-cd /var/www/workinghour/src/backend  # Linux
-# 或
-cd C:\inetpub\workinghour\src\backend  # Windows
+# 安装 certbot
+sudo apt-get install certbot python3-certbot-nginx
 
-nano .env  # Linux
-notepad .env  # Windows
-```
-
-**必须修改的配置：**
-
-```env
-# JWT 密钥（必须修改为强密钥）
-JWT_SECRET_KEY=your-super-secret-jwt-key-change-this
-
-# Flask 密钥（必须修改）
-FLASK_SECRET_KEY=your-flask-secret-key-change-this
-
-# CORS 允许的域名（修改为你的前端域名）
-ALLOWED_ORIGINS=https://yourdomain.com
-```
-
-### 前端配置 (.env.production)
-
-```bash
-# 编辑前端配置文件
-cd /var/www/workinghour/src/frontend  # Linux
-# 或
-cd C:\inetpub\workinghour\src\frontend  # Windows
-
-nano .env.production  # Linux
-notepad .env.production  # Windows
-```
-
-**必须修改的配置：**
-
-```env
-# 后端 API 地址（修改为你的后端域名）
-VITE_API_BASE_URL=https://api.yourdomain.com/api/v1
-```
-
-### Nginx 配置 (Linux)
-
-```bash
-# 编辑 Nginx 配置
-sudo nano /etc/nginx/sites-available/workinghour
-```
-
-**修改服务器名称：**
-
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.com;  # 修改为你的域名
-    # ...
-}
-```
-
----
-
-## SSL/HTTPS 配置
-
-### Linux 使用 Let's Encrypt
-
-```bash
-# 安装 Certbot
-sudo apt install certbot python3-certbot-nginx
-
-# 获取并自动配置 SSL 证书
-sudo certbot --nginx -d yourdomain.com
+# 获取证书
+sudo certbot --nginx -d your-domain.com
 
 # 自动续期
 sudo certbot renew --dry-run
 ```
 
-### Windows IIS SSL
-
-1. 获取 SSL 证书（如 Let's Encrypt 使用 win-acme）
-2. 在 IIS 管理器中绑定证书
-3. 配置 HTTP 到 HTTPS 重定向
-
----
-
-## 常见问题
-
-### 1. 权限错误
-
-**Linux:**
-```bash
-sudo chown -R $USER:$USER /var/www/workinghour
-```
-
-**Windows:**
-```powershell
-# 以管理员身份运行 PowerShell
-```
-
-### 2. 端口被占用
-
-**Linux:**
-```bash
-# 查看占用 8000 端口的进程
-sudo lsof -i :8000
-
-# 杀死进程
-sudo kill -9 <PID>
-```
-
-**Windows:**
-```powershell
-# 查看占用 8000 端口的进程
-netstat -ano | findstr :8000
-
-# 杀死进程
-taskkill /PID <PID> /F
-```
-
-### 3. 服务启动失败
-
-**Linux:**
-```bash
-# 查看服务日志
-sudo journalctl -u workinghour -n 50
-
-# 检查配置
-sudo systemctl status workinghour
-```
-
-**Windows:**
-```powershell
-# 查看事件日志
-Get-EventLog -LogName Application -Newest 50 | Where-Object {$_.Source -like "*WorkingHour*"}
-```
-
-### 4. Git 仓库认证问题
-
-如果使用私有仓库，需要配置 SSH 密钥或个人访问令牌：
+### 2. 配置防火墙
 
 ```bash
-# SSH 方式
-GITHUB_REPO="git@github.com:yourusername/workinghour.git"
+# Ubuntu UFW
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 22/tcp
+sudo ufw enable
 
-# HTTPS 方式（使用令牌）
-GITHUB_REPO="https://YOUR_TOKEN@github.com/yourusername/workinghour.git"
+# CentOS firewalld
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo firewall-cmd --reload
 ```
-
-### 5. 数据库连接错误
-
-**检查数据库路径：**
-```bash
-# Linux
-cat /var/www/workinghour/src/backend/.env | grep DATABASE_PATH
-
-# Windows
-Get-Content C:\inetpub\workinghour\src\backend\.env | Select-String DATABASE_PATH
-
-# 确保目录存在且有写权限
-mkdir -p /var/www/workinghour/data
-chmod 755 /var/www/workinghour/data
-```
-
-### 6. 前端构建失败
-
-```bash
-# 清除缓存重新构建
-cd src/frontend
-rm -rf node_modules package-lock.json  # Linux
-Remove-Item -Recurse -Force node_modules, package-lock.json  # Windows
-
-npm install
-npm run build
-```
-
-### 7. Python 依赖安装失败
-
-```bash
-# 升级 pip
-python -m pip install --upgrade pip
-
-# 使用国内镜像源
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
----
-
-## 生产环境建议
-
-### 1. 安全加固
-
-- ✅ 修改所有默认密钥
-- ✅ 配置防火墙规则
-- ✅ 启用 HTTPS
-- ✅ 定期更新系统和依赖
-- ✅ 配置 fail2ban 防暴力破解
-
-### 2. 数据备份
-
-- ✅ 定期备份数据库（使用系统内置备份功能）
-- ✅ 备份配置文件
-- ✅ 将备份存储到远程位置
 
 ### 3. 监控和日志
 
-- ✅ 配置日志轮转
-- ✅ 监控磁盘空间
-- ✅ 监控服务状态
-- ✅ 配置告警通知
+- 使用 Docker 日志驱动: `--log-driver=json-file --log-opt max-size=10m`
+- 配置日志轮转: `--log-opt max-file=3`
+- 考虑使用 ELK/Loki 等日志聚合方案
 
-### 4. 性能优化
+### 4. 资源限制
 
-- ✅ 使用 Gunicorn 多worker
-- ✅ 配置 Nginx 缓存
-- ✅ 启用 gzip 压缩
-- ✅ 使用 CDN 加速前端资源
+在 `docker-compose.yml` 中添加资源限制:
 
----
-
-## 目录结构
-
-部署后的目录结构：
-
-```
-/var/www/workinghour/                    # 部署根目录
-├── src/                                 # 源代码
-│   ├── backend/                         # 后端代码
-│   │   ├── app/                         # Flask 应用
-│   │   ├── config.py                    # 配置文件
-│   │   ├── requirements.txt             # Python 依赖
-│   │   └── .env                         # 环境变量
-│   └── frontend/                        # 前端代码
-│       ├── src/                         # Vue 源码
-│       ├── dist/                        # 构建产物
-│       ├── package.json                 # Node 依赖
-│       └── .env.production              # 生产环境配置
-├── venv/                                # Python 虚拟环境
-├── data/                                # 数据目录
-│   └── workinghour.db                   # SQLite 数据库
-└── backups/                             # 备份目录
-    ├── backup_20240101_120000/
-    └── backup_20240102_150000/
+```yaml
+services:
+  backend:
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 ```
 
----
+## 文件结构
 
-## 支持与反馈
-
-如遇到问题，请检查：
-
-1. ✅ 系统日志（journalctl 或事件查看器）
-2. ✅ 应用日志
-3. ✅ Nginx/IIS 日志
-4. ✅ Git 仓库状态
-
-需要帮助？请提交 Issue 到项目仓库。
+```
+workinghour/
+├── docker-compose.yml          # Docker Compose 配置
+├── .env.example                # 环境变量模板
+├── .env                        # 环境变量（需创建）
+├── deploy.sh                   # 部署脚本
+├── src/
+│   ├── backend/
+│   │   ├── Dockerfile          # 后端镜像构建文件
+│   │   ├── .dockerignore       # 后端构建忽略文件
+│   │   ├── requirements.txt    # Python 依赖
+│   │   └── app/                # 应用代码
+│   └── frontend/
+│       ├── Dockerfile          # 前端镜像构建文件
+│       ├── .dockerignore       # 前端构建忽略文件
+│       ├── nginx.conf          # Nginx 配置
+│       └── src/                # 源代码
+└── backups/                    # 备份目录（需创建）
+```

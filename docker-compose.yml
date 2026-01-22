@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # 后端服务
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: workinghour-backend
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-key}
+      - DATABASE_PATH=/app/instance/workinghour.db
+      - UPLOAD_FOLDER=/app/uploads
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://localhost:80}
+    volumes:
+      - backend-data:/app/instance
+      - backend-uploads:/app/uploads
+      - ./src/backend:/app
+    ports:
+      - "8000:8000"
+    networks:
+      - workinghour-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: workinghour-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - workinghour-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+# 数据卷
+volumes:
+  backend-data:
+    driver: local
+  backend-uploads:
+    driver: local
+
+# 网络
+networks:
+  workinghour-network:
+    driver: bridge
