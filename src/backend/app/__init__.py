@@ -32,6 +32,7 @@ def create_app(config_class=Config):
     from .routes.query import query_bp
     from .routes.check import check_bp
     from .routes.system import system_bp
+    from .routes.holidays import holidays_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(data_bp, url_prefix='/api/v1')
@@ -39,6 +40,7 @@ def create_app(config_class=Config):
     app.register_blueprint(query_bp, url_prefix='/api/v1')
     app.register_blueprint(check_bp, url_prefix='/api/v1')
     app.register_blueprint(system_bp, url_prefix='/api/v1')
+    app.register_blueprint(holidays_bp, url_prefix='/api/v1')
 
     # 创建数据库表
     with app.app_context():

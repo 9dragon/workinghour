@@ -17,6 +17,7 @@ class CheckRecord(db.Model):
     user_name = db.Column(db.String(50), index=True)
     check_config = db.Column(db.Text, nullable=False)  # JSON格式配置
     check_result = db.Column(db.Text, nullable=False)  # JSON格式结果
+    trigger_type = db.Column(db.String(20), nullable=False, default='manual')  # manual/scheduled/import
     check_user = db.Column(db.String(50), nullable=False)
     check_time = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
     report_path = db.Column(db.String(255))
@@ -28,6 +29,7 @@ class CheckRecord(db.Model):
             'id': self.id,
             'checkNo': self.check_no,
             'checkType': self.check_type,
+            'triggerType': self.trigger_type,
             'startDate': self.start_date.isoformat() if self.start_date else None,
             'endDate': self.end_date.isoformat() if self.end_date else None,
             'deptName': self.dept_name,

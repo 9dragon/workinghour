@@ -94,7 +94,7 @@
         <el-col :span="24">
           <div class="summary-item rate-item">
             <div class="summary-label">完整性百分比</div>
-            <div class="summary-value highlight">{{ summaryData.integrityRate.toFixed(2) }}%</div>
+            <div class="summary-value highlight">{{ typeof summaryData.integrityRate === 'number' ? summaryData.integrityRate.toFixed(2) : summaryData.integrityRate }}%</div>
           </div>
         </el-col>
       </el-row>
@@ -106,10 +106,6 @@
         <div class="card-header">
           <el-icon><Document /></el-icon>
           <span>核对结果</span>
-          <el-button type="primary" size="small" @click="handleExportReport">
-            <el-icon><Download /></el-icon>
-            导出报告
-          </el-button>
         </div>
       </template>
 
@@ -173,10 +169,10 @@ const checkForm = reactive({
 const dateRange = ref([])
 
 const filteredUsers = computed(() => {
-  if (!checkForm.value.deptName) {
+  if (!checkForm.deptName) {
     return dataDict.value.users
   }
-  return dataDict.value.users.filter(user => user.deptName === checkForm.value.deptName)
+  return dataDict.value.users.filter(user => user.deptName === checkForm.deptName)
 })
 
 const loadDict = async () => {
@@ -238,20 +234,6 @@ const handleReset = () => {
   summaryData.value = null
   hasChecked.value = false
   checkNo.value = ''
-}
-
-const handleExportReport = async () => {
-  try {
-    if (!checkNo.value) {
-      ElMessage.warning('请先执行核对操作')
-      return
-    }
-    const { downloadCheckReport } = await import('@/api')
-    await downloadCheckReport(checkNo.value)
-    ElMessage.success('报告导出成功')
-  } catch (error) {
-    console.error('导出报告失败:', error)
-  }
 }
 
 onMounted(() => {

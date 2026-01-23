@@ -4,8 +4,8 @@
       <el-form :model="filterForm" inline>
         <el-form-item label="核对类型">
           <el-select v-model="filterForm.checkType" placeholder="请选择" clearable style="width: 180px">
-            <el-option label="周报提交完整性检查" value="integrity-consistency" />
-            <el-option label="工作时长一致性检查" value="work-hours-consistency" />
+            <el-option label="周报提交检查" value="integrity-consistency" />
+            <el-option label="工作时长检查" value="work-hours-consistency" />
           </el-select>
         </el-form-item>
         <el-form-item label="核对时间">
@@ -53,6 +53,13 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="触发方式" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getTriggerTypeTag(row.triggerType)" size="small">
+              {{ getTriggerTypeLabel(row.triggerType) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="startDate" label="核对开始日期" width="120" />
         <el-table-column prop="endDate" label="核对结束日期" width="120" />
         <el-table-column prop="deptName" label="部门" width="150" show-overflow-tooltip />
@@ -61,25 +68,25 @@
         <el-table-column prop="checkTime" label="核对时间" width="160" sortable class-name="sortable-column" />
         <el-table-column label="核对结果摘要" min-width="250" show-overflow-tooltip>
           <template #default="{ row }">
-            <div v-if="row.checkType === 'integrity-consistency'">
-              总人数: {{ row.summary.totalUsers }},
-              空缺人数: {{ row.summary.missingUsers }},
-              重复人数: {{ row.summary.duplicateUsers }}
+            <div v-if="row.checkResult">
+              <div v-if="row.checkType === 'integrity-consistency' || row.checkType === 'integrity'">
+                总人数: {{ row.checkResult.totalUsers }},
+                空缺人数: {{ row.checkResult.missingUsers }},
+                重复人数: {{ row.checkResult.duplicateUsers || 0 }}
+              </div>
+              <div v-else>
+                总工单: {{ row.checkResult.totalSerials }},
+                偏低工单: {{ row.checkResult.shortSerials }},
+                偏高工单: {{ row.checkResult.excessSerials }}
+              </div>
             </div>
-            <div v-else>
-              总工单: {{ row.summary.totalSerials }},
-              偏低工单: {{ row.summary.shortSerials }},
-              偏高工单: {{ row.summary.excessSerials }}
-            </div>
+            <div v-else class="text-gray">暂无数据</div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" align="center" fixed="right">
+        <el-table-column label="操作" width="100" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleViewDetail(row)">
               查看详情
-            </el-button>
-            <el-button type="primary" link size="small" @click="handleDownloadReport(row)">
-              下载报告
             </el-button>
           </template>
         </el-table-column>
@@ -112,6 +119,11 @@
             {{ getCheckTypeLabel(currentRecord.checkType) }}
           </el-tag>
         </el-descriptions-item>
+        <el-descriptions-item label="触发方式">
+          <el-tag :type="getTriggerTypeTag(currentRecord.triggerType)" size="small">
+            {{ getTriggerTypeLabel(currentRecord.triggerType) }}
+          </el-tag>
+        </el-descriptions-item>
         <el-descriptions-item label="执行人">{{ currentRecord.checkUser }}</el-descriptions-item>
         <el-descriptions-item label="核对时间范围">
           {{ currentRecord.startDate }} 至 {{ currentRecord.endDate }}
@@ -121,37 +133,37 @@
         <el-descriptions-item v-if="currentRecord.userName" label="人员">{{ currentRecord.userName }}</el-descriptions-item>
       </el-descriptions>
 
-      <div v-if="currentDetail && currentDetail.summary" style="margin-top: 20px">
+      <div v-if="currentDetail && currentDetail.checkResult" style="margin-top: 20px">
         <el-divider>核对结果汇总</el-divider>
-        <el-row v-if="currentRecord.checkType === 'integrity-consistency'" :gutter="20">
+        <el-row v-if="currentRecord.checkType === 'integrity-consistency' || currentRecord.checkType === 'integrity'" :gutter="20">
           <el-col :span="4">
             <div class="summary-item">
               <div class="summary-label">核对总人数</div>
-              <div class="summary-value">{{ currentDetail.summary.totalUsers }}</div>
+              <div class="summary-value">{{ currentDetail.checkResult.totalUsers }}</div>
             </div>
           </el-col>
           <el-col :span="5">
             <div class="summary-item">
               <div class="summary-label">存在空缺人数</div>
-              <div class="summary-value warning">{{ currentDetail.summary.missingUsers }}</div>
+              <div class="summary-value warning">{{ currentDetail.checkResult.missingUsers }}</div>
             </div>
           </el-col>
           <el-col :span="5">
             <div class="summary-item">
               <div class="summary-label">总空缺工作日天数</div>
-              <div class="summary-value danger">{{ currentDetail.summary.totalMissingWorkdays }}</div>
+              <div class="summary-value danger">{{ currentDetail.checkResult.totalMissingWorkdays || currentDetail.checkResult.totalMissingDays }}</div>
             </div>
           </el-col>
           <el-col :span="5">
             <div class="summary-item">
               <div class="summary-label">存在重复人数</div>
-              <div class="summary-value info">{{ currentDetail.summary.duplicateUsers }}</div>
+              <div class="summary-value info">{{ currentDetail.checkResult.duplicateUsers || 0 }}</div>
             </div>
           </el-col>
           <el-col :span="5">
             <div class="summary-item">
               <div class="summary-label">总重复工作日天数</div>
-              <div class="summary-value info">{{ currentDetail.summary.totalDuplicateWorkdays }}</div>
+              <div class="summary-value info">{{ currentDetail.checkResult.totalDuplicateWorkdays || 0 }}</div>
             </div>
           </el-col>
         </el-row>
@@ -159,25 +171,25 @@
           <el-col :span="6">
             <div class="summary-item">
               <div class="summary-label">核对总工单数</div>
-              <div class="summary-value">{{ currentDetail.summary.totalSerials }}</div>
+              <div class="summary-value">{{ currentDetail.checkResult.totalSerials }}</div>
             </div>
           </el-col>
           <el-col :span="6">
             <div class="summary-item">
               <div class="summary-label">正常工单数</div>
-              <div class="summary-value normal">{{ currentDetail.summary.normalSerials }}</div>
+              <div class="summary-value normal">{{ currentDetail.checkResult.normalSerials }}</div>
             </div>
           </el-col>
           <el-col :span="6">
             <div class="summary-item">
               <div class="summary-label">偏低工单数</div>
-              <div class="summary-value warning">{{ currentDetail.summary.shortSerials }}</div>
+              <div class="summary-value warning">{{ currentDetail.checkResult.shortSerials }}</div>
             </div>
           </el-col>
           <el-col :span="6">
             <div class="summary-item">
               <div class="summary-label">偏高工单数</div>
-              <div class="summary-value danger">{{ currentDetail.summary.excessSerials }}</div>
+              <div class="summary-value danger">{{ currentDetail.checkResult.excessSerials }}</div>
             </div>
           </el-col>
         </el-row>
@@ -189,6 +201,8 @@
           <el-table-column type="index" label="序号" width="60" />
           <el-table-column prop="deptName" label="部门" width="120" />
           <el-table-column prop="userName" label="姓名" width="100" />
+
+          <!-- 周报提交检查列 -->
           <template v-if="currentRecord.checkType === 'integrity-consistency'">
             <el-table-column prop="issueType" label="问题类型" width="100" align="center">
               <template #default="{ row }">
@@ -202,6 +216,8 @@
             <el-table-column prop="affectedWorkdays" label="影响工作日天数" width="140" align="center" />
             <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
           </template>
+
+          <!-- 工作时长检查列 -->
           <template v-else>
             <el-table-column prop="serialNo" label="工单序号" width="100" />
             <el-table-column prop="startTime" label="开始时间" width="120" />
@@ -233,9 +249,6 @@
 
       <template #footer>
         <el-button @click="detailDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="handleDownloadReport(currentRecord)">
-          下载报告
-        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -244,7 +257,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getCheckHistory, getCheckDetail, downloadCheckReport as apiDownloadReport } from '@/api'
+import { getCheckHistory, getCheckDetail } from '@/api'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -318,31 +331,12 @@ const handleViewDetail = async (row) => {
   detailDialogVisible.value = true
 }
 
-const handleDownloadReport = async (row) => {
-  try {
-    const res = await apiDownloadReport(row.checkNo)
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const typeLabel = getCheckTypeLabel(row.checkType)
-    a.download = `工时核对报告_${typeLabel}_${row.checkNo}.xlsx`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
-    ElMessage.success('报告下载成功')
-  } catch (error) {
-    console.error('下载报告失败:', error)
-  }
-}
-
 const getCheckTypeLabel = (type) => {
   const map = {
-    'integrity-consistency': '周报提交完整性检查',
-    'work-hours-consistency': '工作时长一致性检查',
-    'integrity': '完整性检查',
-    'compliance': '合规性检查'
+    'integrity-consistency': '周报提交检查',
+    'work-hours-consistency': '工作时长检查',
+    'integrity': '周报提交检查',
+    'compliance': '工作时长检查'
   }
   return map[type] || type
 }
@@ -353,6 +347,24 @@ const getCheckTypeTag = (type) => {
     'work-hours-consistency': 'warning',
     'integrity': 'success',
     'compliance': 'warning'
+  }
+  return map[type] || 'info'
+}
+
+const getTriggerTypeLabel = (type) => {
+  const map = {
+    'manual': '手动触发',
+    'scheduled': '定时触发',
+    'import': '导入后触发'
+  }
+  return map[type] || '未知'
+}
+
+const getTriggerTypeTag = (type) => {
+  const map = {
+    'manual': 'primary',
+    'scheduled': 'success',
+    'import': 'warning'
   }
   return map[type] || 'info'
 }
@@ -444,6 +456,10 @@ onMounted(() => {
 .text-danger {
   color: #F56C6C;
   font-weight: 600;
+}
+
+.text-gray {
+  color: #909399;
 }
 
 :deep(.sortable-column .cell) {

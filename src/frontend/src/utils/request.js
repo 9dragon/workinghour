@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store'
 
 // 模拟模式：用于无后端时体验前端原型
-const MOCK_MODE = false
+const MOCK_MODE = true
 
 // 创建 axios 实例
 const request = axios.create({
@@ -44,10 +44,9 @@ request.interceptors.response.use(
     }
   },
   (error) => {
-    // 模拟模式下，返回模拟数据
+    // 模拟模式下网络错误不显示错误信息（因为会在 API 层返回 Mock 数据）
     if (MOCK_MODE && error.code === 'ERR_NETWORK') {
-      console.log('[Mock Mode] 返回模拟响应')
-      return Promise.reject(new Error('MOCK_MODE_NETWORK_ERROR'))
+      return Promise.reject(error)
     }
 
     if (error.response) {
@@ -91,7 +90,7 @@ request.interceptors.response.use(
         default:
           ElMessage.error(data.message || '请求失败')
       }
-    } else {
+    } else if (!MOCK_MODE) {
       ElMessage.error('网络连接失败')
     }
     return Promise.reject(error)

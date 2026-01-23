@@ -7,10 +7,11 @@
             v-model="dateRange"
             type="daterange"
             range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            start-placeholder="开始日期（可选）"
+            end-placeholder="结束日期（可选）"
             value-format="YYYY-MM-DD"
             style="width: 260px"
+            clearable
           />
         </el-form-item>
         <el-form-item label="部门">
@@ -90,7 +91,7 @@
         <el-col :span="24">
           <div class="summary-item rate-item">
             <div class="summary-label">合规率</div>
-            <div class="summary-value highlight">{{ summaryData.complianceRate.toFixed(2) }}%</div>
+            <div class="summary-value highlight">{{ typeof summaryData.complianceRate === 'number' ? summaryData.complianceRate.toFixed(2) : summaryData.complianceRate }}%</div>
           </div>
         </el-col>
       </el-row>
@@ -131,20 +132,16 @@
     </el-card>
 
     <!-- 核对结果 -->
-    <el-card v-if="tableData.length > 0" class="result-card">
+    <el-card v-if="abnormalData.length > 0" class="result-card">
       <template #header>
         <div class="card-header">
           <el-icon><Document /></el-icon>
-          <span>核对结果详情</span>
-          <el-button type="primary" size="small" @click="handleExportReport">
-            <el-icon><Download /></el-icon>
-            导出报告
-          </el-button>
+          <span>核对结果</span>
         </div>
       </template>
 
       <el-table
-        :data="tableData"
+        :data="abnormalData"
         border
         stripe
         height="calc(100vh - 600px)"
@@ -256,10 +253,15 @@ const checkForm = reactive({
 const dateRange = ref([])
 
 const filteredUsers = computed(() => {
-  if (!checkForm.value.deptName) {
+  if (!checkForm.deptName) {
     return dataDict.value.users
   }
-  return dataDict.value.users.filter(user => user.deptName === checkForm.value.deptName)
+  return dataDict.value.users.filter(user => user.deptName === checkForm.deptName)
+})
+
+// 只显示异常数据
+const abnormalData = computed(() => {
+  return tableData.value.filter(item => item.status !== 'normal')
 })
 
 const loadDict = async () => {
@@ -277,18 +279,13 @@ const handleDeptChange = () => {
 }
 
 const handleCheck = async () => {
-  if (!dateRange.value || dateRange.value.length !== 2) {
-    ElMessage.warning('请选择核对时间范围')
-    return
-  }
-
   checking.value = true
   hasChecked.value = false
 
   try {
     const params = {
-      startDate: dateRange.value[0],
-      endDate: dateRange.value[1],
+      startDate: dateRange.value?.[0] || null,
+      endDate: dateRange.value?.[1] || null,
       deptName: checkForm.deptName || null,
       userName: checkForm.userName || null
     }
@@ -298,11 +295,11 @@ const handleCheck = async () => {
     checkNo.value = res.data.checkNo
     hasChecked.value = true
 
-    if (tableData.value.length === 0) {
+    if (abnormalData.value.length === 0) {
       ElMessage.success('核对完成，所有工单工作时长均正常')
     } else {
-      const shortCount = tableData.value.filter(item => item.status === 'short').length
-      const excessCount = tableData.value.filter(item => item.status === 'excess').length
+      const shortCount = abnormalData.value.filter(item => item.status === 'short').length
+      const excessCount = abnormalData.value.filter(item => item.status === 'excess').length
       ElMessage.warning(`发现 ${shortCount} 个工单偏低，${excessCount} 个工单偏高`)
     }
   } catch (error) {
@@ -321,20 +318,6 @@ const handleReset = () => {
   summaryData.value = null
   hasChecked.value = false
   checkNo.value = ''
-}
-
-const handleExportReport = async () => {
-  try {
-    if (!checkNo.value) {
-      ElMessage.warning('请先执行核对操作')
-      return
-    }
-    const { downloadCheckReport } = await import('@/api')
-    await downloadCheckReport(checkNo.value)
-    ElMessage.success('报告导出成功')
-  } catch (error) {
-    console.error('导出报告失败:', error)
-  }
 }
 
 onMounted(() => {

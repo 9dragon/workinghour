@@ -3,7 +3,7 @@
 """
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import pandas as pd
 from openpyxl import load_workbook
 
@@ -215,23 +215,83 @@ def calculate_date_range(start_date, end_date, max_days=90):
     except ValueError as e:
         return False, "日期格式错误，应为YYYY-MM-DD", 0
 
-def get_workdays_in_range(start_date, end_date, workdays):
+def get_workdays_in_range(start_date, end_date, workdays, holidays=None):
     """
-    获取指定时间范围内的工作日列表
+    获取指定时间范围内的工作日列表（考虑节假日）
 
     参数:
         start_date: 开始日期 (datetime.date)
         end_date: 结束日期 (datetime.date)
         workdays: 工作日列表 [1,2,3,4,5] (1=周一, 7=周日)
+        holidays: 节假日列表 [datetime.date, ...] (可选)
 
     返回: 工作日日期列表
     """
     workdays_list = []
     current = start_date
 
+    # 将节假日转换为集合以提高查找效率
+    holiday_set = set(holidays) if holidays else set()
+
     while current <= end_date:
-        if current.weekday() + 1 in workdays:  # weekday()+1转换为1-7
+        # 检查是否是工作日（周一到周五）
+        is_weekday_workday = current.weekday() + 1 in workdays
+
+        # 检查是否是节假日
+        is_holiday = current in holiday_set
+
+        # 如果是工作日且不是节假日，则添加到列表
+        if is_weekday_workday and not is_holiday:
             workdays_list.append(current)
+
         current += timedelta(days=1)
 
     return workdays_list
+
+def calculate_workdays(start_date, end_date, workdays=[1, 2, 3, 4, 5], holidays=None):
+    """
+    计算日期范围内的实际工作日天数（考虑节假日）
+
+    参数:
+        start_date: 开始日期 (datetime.date 或 str 'YYYY-MM-DD')
+        end_date: 结束日期 (datetime.date 或 str 'YYYY-MM-DD')
+        workdays: 工作日列表 [1,2,3,4,5] (1=周一, 7=周日)
+        holidays: 节假日列表 [datetime.date, ...] 或 [{'holidayDate': '2026-01-01', 'isWorkday': False}, ...] (可选)
+
+    返回: 工作日天数
+    """
+    # 转换日期格式
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+    # 处理节假日列表
+    holiday_set = set()
+    workday_set = set()  # 调休工作日
+
+    if holidays:
+        for item in holidays:
+            if isinstance(item, dict):
+                # 字典格式 {'holidayDate': '2026-01-01', 'isWorkday': False}
+                h_date = isinstance(item['holidayDate'], str) and datetime.strptime(item['holidayDate'], '%Y-%m-%d').date() or item['holidayDate']
+                if item.get('isWorkday', False):
+                    workday_set.add(h_date)
+                else:
+                    holiday_set.add(h_date)
+            elif isinstance(item, (date, datetime)):
+                # 直接是日期对象
+                holiday_set.add(item)
+
+    # 计算工作日
+    workdays_list = get_workdays_in_range(start_date, end_date, workdays, holiday_set)
+
+    # 加上调休工作日
+    for wd in workday_set:
+        if start_date <= wd <= end_date and wd not in workdays_list:
+            workdays_list.append(wd)
+
+    # 排序
+    workdays_list.sort()
+
+    return len(workdays_list)

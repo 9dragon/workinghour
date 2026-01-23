@@ -51,11 +51,11 @@
           </template>
           <el-menu-item index="/check/integrity">
             <el-icon><Clock /></el-icon>
-            <span>周报提交完整性检查</span>
+            <span>周报提交检查</span>
           </el-menu-item>
           <el-menu-item index="/check/hours">
             <el-icon><Warning /></el-icon>
-            <span>工作时长一致性检查</span>
+            <span>工作时长检查</span>
           </el-menu-item>
           <el-menu-item index="/check/holidays">
             <el-icon><Calendar /></el-icon>
@@ -63,7 +63,7 @@
           </el-menu-item>
           <el-menu-item index="/check/history">
             <el-icon><Notebook /></el-icon>
-            <span>核对历史记录</span>
+            <span>核对历史</span>
           </el-menu-item>
         </el-sub-menu>
 

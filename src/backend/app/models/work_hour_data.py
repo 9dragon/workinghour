@@ -15,10 +15,12 @@ class WorkHourData(db.Model):
     user_name = db.Column(db.String(50), nullable=False, index=True)
     start_time = db.Column(db.Date, nullable=False, index=True)
     end_time = db.Column(db.Date, nullable=False)
+    work_type = db.Column(db.String(20), nullable=False, default='project_delivery', index=True)  # project_delivery/product_research/presales_support/dept_internal/leave
     project_manager = db.Column(db.String(50))
     project_name = db.Column(db.String(100), nullable=False, index=True)
     work_hours = db.Column(db.Float, nullable=False)
     overtime_hours = db.Column(db.Float, nullable=False, default=0)
+    leave_hours = db.Column(db.Float, nullable=False, default=0)  # 请假时长（仅leave类型有值）
     work_content = db.Column(db.String(500))
     approval_result = db.Column(db.String(10), nullable=False, default='通过')
     approval_status = db.Column(db.String(10), nullable=False, default='已完成')
@@ -52,10 +54,12 @@ class WorkHourData(db.Model):
             'userName': self.user_name,
             'startTime': start_time_str,
             'endTime': end_time_str,
+            'workType': self.work_type,
             'projectManager': self.project_manager,
             'projectName': self.project_name,
             'workHours': self.work_hours,
             'overtimeHours': self.overtime_hours,
+            'leaveHours': self.leave_hours,
             'deptName': self.dept_name,
             'workContent': self.work_content,
             'approvalResult': self.approval_result,

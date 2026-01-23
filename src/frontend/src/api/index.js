@@ -485,8 +485,9 @@ export const getCheckHistory = (params) => {
           {
             id: 1,
             checkNo: 'CHK_20260115100000_0001',
-            checkType: 'integrity',
-            checkTypeName: '完整性检查',
+            checkType: 'integrity-consistency',
+            checkTypeName: '周报提交检查',
+            triggerType: 'manual',
             startDate: '2026-01-01',
             endDate: '2026-01-31',
             deptName: '研发部',
@@ -494,8 +495,10 @@ export const getCheckHistory = (params) => {
             checkResult: {
               totalUsers: 50,
               missingUsers: 3,
-              totalMissingDays: 15,
-              integrityRate: 99.5
+              totalMissingWorkdays: 15,
+              duplicateUsers: 2,
+              totalDuplicateWorkdays: 5,
+              integrityRate: 97.5
             },
             checkUser: 'admin',
             checkTime: '2026-01-15T10:00:00+08:00'
@@ -503,31 +506,29 @@ export const getCheckHistory = (params) => {
           {
             id: 2,
             checkNo: 'CHK_20260114160000_0002',
-            checkType: 'compliance',
-            checkTypeName: '合规性检查',
+            checkType: 'work-hours-consistency',
+            checkTypeName: '工作时长检查',
+            triggerType: 'scheduled',
             startDate: '2026-01-01',
             endDate: '2026-01-31',
             deptName: null,
             userName: null,
             checkResult: {
-              totalRecords: 1000,
-              abnormalRecords: 15,
-              abnormalUsers: 5,
-              complianceRate: 98.5,
-              invalidTypes: {
-                shortHours: 8,
-                excessOvertime: 5,
-                cumulativeExcess: 2
-              }
+              totalSerials: 200,
+              normalSerials: 180,
+              shortSerials: 12,
+              excessSerials: 8,
+              complianceRate: 90.0
             },
-            checkUser: 'admin',
+            checkUser: 'system',
             checkTime: '2026-01-14T16:00:00+08:00'
           },
           {
             id: 3,
             checkNo: 'CHK_20260113093000_0003',
-            checkType: 'integrity',
-            checkTypeName: '完整性检查',
+            checkType: 'integrity-consistency',
+            checkTypeName: '周报提交检查',
+            triggerType: 'import',
             startDate: '2026-01-01',
             endDate: '2026-01-15',
             deptName: '产品部',
@@ -535,10 +536,12 @@ export const getCheckHistory = (params) => {
             checkResult: {
               totalUsers: 10,
               missingUsers: 1,
-              totalMissingDays: 3,
+              totalMissingWorkdays: 3,
+              duplicateUsers: 0,
+              totalDuplicateWorkdays: 0,
               integrityRate: 99.0
             },
-            checkUser: 'admin',
+            checkUser: 'system',
             checkTime: '2026-01-13T09:30:00+08:00'
           }
         ],
@@ -555,11 +558,101 @@ export const getCheckHistory = (params) => {
 // 获取核对详情
 export const getCheckDetail = (checkNo) => {
   if (MOCK_MODE) {
-    return Promise.resolve({
-      code: 200,
-      message: '获取成功',
-      data: { checkNo: checkNo, checkType: '完整性检查', details: [] }
-    })
+    // 根据批次号返回不同的模拟数据
+    const isIntegrity = checkNo.includes('0001') || checkNo.includes('0003')
+
+    if (isIntegrity) {
+      return Promise.resolve({
+        code: 200,
+        message: '获取成功',
+        data: {
+          checkNo: checkNo,
+          checkType: 'integrity-consistency',
+          triggerType: 'manual',
+          checkResult: {
+            totalUsers: 50,
+            missingUsers: 3,
+            totalMissingWorkdays: 15,
+            duplicateUsers: 2,
+            totalDuplicateWorkdays: 5,
+            integrityRate: 97.5
+          },
+          list: [
+            {
+              deptName: '研发部',
+              userName: '张三',
+              issueType: 'missing',
+              serialNo: null,
+              gapStartDate: '2026-01-08',
+              gapEndDate: '2026-01-14',
+              affectedWorkdays: 4,
+              description: '未提交周报'
+            },
+            {
+              deptName: '产品部',
+              userName: '李四',
+              issueType: 'duplicate',
+              serialNo: '001',
+              gapStartDate: '2026-01-10',
+              gapEndDate: '2026-01-10',
+              affectedWorkdays: 1,
+              description: '与序号002时间重叠'
+            }
+          ]
+        }
+      })
+    } else {
+      return Promise.resolve({
+        code: 200,
+        message: '获取成功',
+        data: {
+          checkNo: checkNo,
+          checkType: 'work-hours-consistency',
+          triggerType: 'scheduled',
+          checkResult: {
+            totalSerials: 200,
+            normalSerials: 180,
+            shortSerials: 12,
+            excessSerials: 8,
+            complianceRate: 90.0
+          },
+          list: [
+            {
+              serialNo: '001',
+              userName: '张三',
+              startTime: '2026-01-01',
+              endTime: '2026-01-07',
+              projectDeliveryHours: 20,
+              productResearchHours: 10,
+              presalesSupportHours: 2,
+              deptInternalHours: 0,
+              totalWorkHours: 32,
+              leaveHours: 8,
+              expectedWorkHours: 40,
+              legalWorkHours: 40,
+              difference: 0,
+              status: 'normal'
+            },
+            {
+              serialNo: '002',
+              userName: '李四',
+              startTime: '2026-01-08',
+              endTime: '2026-01-14',
+              projectDeliveryHours: 15,
+              productResearchHours: 8,
+              presalesSupportHours: 0,
+              deptInternalHours: 0,
+              totalWorkHours: 23,
+              leaveHours: 0,
+              expectedWorkHours: 23,
+              legalWorkHours: 40,
+              difference: -17,
+              status: 'short'
+            }
+          ]
+        }
+      })
+    }
   }
   return request.get(`/check/record/${checkNo}`)
 }
