@@ -35,7 +35,8 @@
       "Bash(findstr:*)",
       "Bash(netstat:*)",
       "Bash(timeout:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "WebSearch"
     ]
   }
 }
