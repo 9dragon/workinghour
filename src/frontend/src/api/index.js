@@ -340,8 +340,8 @@ export const exportQueryResult = (params) => {
   })
 }
 
-// 工时完整性检查
-export const checkIntegrity = (params) => {
+// 周报提交完整性和时间重复检查
+export const checkIntegrityConsistency = (params) => {
   if (MOCK_MODE) {
     return Promise.resolve({
       code: 200,
@@ -351,40 +351,51 @@ export const checkIntegrity = (params) => {
         summary: {
           totalUsers: 50,
           missingUsers: 3,
-          totalMissingDays: 15,
-          integrityRate: 99.5
+          totalMissingWorkdays: 15,
+          duplicateUsers: 2,
+          totalDuplicateWorkdays: 5,
+          integrityRate: 97.5
         },
         list: [
           {
             deptName: '研发部',
             userName: '张三',
-            missingDates: '2026-01-10,2026-01-11,2026-01-15',
-            missingDays: 3,
-            lastSubmitDate: '2026-01-14'
+            issueType: 'missing',
+            serialNo: null,
+            gapStartDate: '2026-01-08',
+            gapEndDate: '2026-01-14',
+            affectedWorkdays: 4,
+            description: '未提交周报'
           },
           {
             deptName: '产品部',
             userName: '李四',
-            missingDates: '2026-01-12',
-            missingDays: 1,
-            lastSubmitDate: '2026-01-13'
+            issueType: 'duplicate',
+            serialNo: '001',
+            gapStartDate: '2026-01-10',
+            gapEndDate: '2026-01-10',
+            affectedWorkdays: 1,
+            description: '与序号002时间重叠'
           },
           {
             deptName: '设计部',
             userName: '王五',
-            missingDates: '2026-01-08,2026-01-09,2026-01-10,2026-01-11,2026-01-12',
-            missingDays: 5,
-            lastSubmitDate: '2026-01-07'
+            issueType: 'missing',
+            serialNo: null,
+            gapStartDate: '2026-01-06',
+            gapEndDate: '2026-01-12',
+            affectedWorkdays: 5,
+            description: '未提交周报'
           }
         ]
       }
     })
   }
-  return request.post('/check/integrity', params)
+  return request.post('/check/integrity-consistency', params)
 }
 
-// 工时合规性检查
-export const checkCompliance = (params) => {
+// 工作时长一致性检查
+export const checkWorkHoursConsistency = (params) => {
   if (MOCK_MODE) {
     return Promise.resolve({
       code: 200,
@@ -392,49 +403,72 @@ export const checkCompliance = (params) => {
       data: {
         checkNo: generateCheckNo(),
         summary: {
-          totalRecords: 1000,
-          abnormalRecords: 15,
-          abnormalUsers: 5,
-          complianceRate: 98.5,
-          invalidTypes: {
-            shortHours: 8,
-            excessOvertime: 5,
-            cumulativeExcess: 2
+          totalSerials: 200,
+          normalSerials: 180,
+          shortSerials: 12,
+          excessSerials: 8,
+          complianceRate: 90.0,
+          workTypeStats: {
+            project_delivery: { totalHours: 3600, avgHours: 18.0 },
+            product_research: { totalHours: 1800, avgHours: 9.0 },
+            presales_support: { totalHours: 400, avgHours: 2.0 },
+            dept_internal: { totalHours: 200, avgHours: 1.0 }
           }
         },
         list: [
           {
-            deptName: '研发部',
+            serialNo: '001',
             userName: '张三',
-            date: '2026-01-15',
-            workHours: 3.0,
-            overtimeHours: 0.0,
-            abnormalType: 'shortHours',
-            abnormalDesc: '工作时长3小时，低于下限4小时'
+            startTime: '2026-01-01',
+            endTime: '2026-01-07',
+            projectDeliveryHours: 20,
+            productResearchHours: 10,
+            presalesSupportHours: 2,
+            deptInternalHours: 0,
+            totalWorkHours: 32,
+            leaveHours: 8,
+            expectedWorkHours: 40,
+            legalWorkHours: 40,
+            difference: 0,
+            status: 'normal'
           },
           {
-            deptName: '产品部',
+            serialNo: '002',
             userName: '李四',
-            date: '2026-01-15',
-            workHours: 8.0,
-            overtimeHours: 5.0,
-            abnormalType: 'excessOvertime',
-            abnormalDesc: '加班时长5小时，超过上限4小时'
+            startTime: '2026-01-08',
+            endTime: '2026-01-14',
+            projectDeliveryHours: 15,
+            productResearchHours: 8,
+            presalesSupportHours: 0,
+            deptInternalHours: 0,
+            totalWorkHours: 23,
+            leaveHours: 0,
+            expectedWorkHours: 23,
+            legalWorkHours: 40,
+            difference: -17,
+            status: 'short'
           },
           {
-            deptName: '设计部',
+            serialNo: '003',
             userName: '王五',
-            date: '2026-01-14',
-            workHours: 8.0,
-            overtimeHours: 0.0,
-            abnormalType: 'shortHours',
-            abnormalDesc: '工作时长2小时，低于下限4小时'
+            startTime: '2026-01-15',
+            endTime: '2026-01-21',
+            projectDeliveryHours: 45,
+            productResearchHours: 10,
+            presalesSupportHours: 0,
+            deptInternalHours: 0,
+            totalWorkHours: 55,
+            leaveHours: 0,
+            expectedWorkHours: 55,
+            legalWorkHours: 40,
+            difference: 15,
+            status: 'excess'
           }
         ]
       }
     })
   }
-  return request.post('/check/compliance', params)
+  return request.post('/check/work-hours-consistency', params)
 }
 
 // 获取核对历史记录
@@ -646,4 +680,121 @@ export const getSystemInfo = () => {
     })
   }
   return request.get('/system/info')
+}
+
+// ==================== 节假日管理相关接口 ====================
+
+// 获取节假日列表
+export const getHolidays = (params) => {
+  if (MOCK_MODE) {
+    const mockHolidays = [
+      { id: 1, holidayDate: '2026-01-01', holidayName: '元旦', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 2, holidayDate: '2026-01-02', holidayName: '元旦', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 3, holidayDate: '2026-01-03', holidayName: '元旦', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 4, holidayDate: '2026-02-10', holidayName: '春节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 5, holidayDate: '2026-02-11', holidayName: '春节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 6, holidayDate: '2026-02-12', holidayName: '春节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 7, holidayDate: '2026-02-13', holidayName: '春节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 8, holidayDate: '2026-02-14', holidayName: '春节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 9, holidayDate: '2026-02-15', holidayName: '春节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 10, holidayDate: '2026-02-16', holidayName: '春节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 11, holidayDate: '2026-02-17', holidayName: '春节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 12, holidayDate: '2026-04-04', holidayName: '清明节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 13, holidayDate: '2026-04-05', holidayName: '清明节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 14, holidayDate: '2026-04-06', holidayName: '清明节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 15, holidayDate: '2026-05-01', holidayName: '劳动节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 16, holidayDate: '2026-05-02', holidayName: '劳动节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 17, holidayDate: '2026-05-03', holidayName: '劳动节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 18, holidayDate: '2026-05-04', holidayName: '劳动节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 19, holidayDate: '2026-05-05', holidayName: '劳动节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 20, holidayDate: '2026-06-09', holidayName: '端午节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 21, holidayDate: '2026-06-10', holidayName: '端午节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 22, holidayDate: '2026-06-11', holidayName: '端午节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 23, holidayDate: '2026-09-19', holidayName: '中秋节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 24, holidayDate: '2026-09-20', holidayName: '中秋节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 25, holidayDate: '2026-09-21', holidayName: '中秋节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 26, holidayDate: '2026-10-01', holidayName: '国庆节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 27, holidayDate: '2026-10-02', holidayName: '国庆节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 28, holidayDate: '2026-10-03', holidayName: '国庆节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 29, holidayDate: '2026-10-04', holidayName: '国庆节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 30, holidayDate: '2026-10-05', holidayName: '国庆节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 31, holidayDate: '2026-10-06', holidayName: '国庆节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 32, holidayDate: '2026-10-07', holidayName: '国庆节', isWorkday: 0, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 33, holidayDate: '2026-10-08', holidayName: '国庆节', isWorkday: 1, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' },
+      { id: 34, holidayDate: '2026-02-08', holidayName: '春节调休', isWorkday: 1, year: 2026, createdAt: '2026-01-15T10:00:00+08:00' }
+    ]
+
+    const { year, page = 1, size = 20 } = params || {}
+
+    let filteredList = mockHolidays
+    if (year) {
+      filteredList = mockHolidays.filter(h => h.year === parseInt(year))
+    }
+
+    const total = filteredList.length
+    const startIndex = (page - 1) * size
+    const endIndex = startIndex + size
+    const pagedList = filteredList.slice(startIndex, endIndex)
+
+    return Promise.resolve({
+      code: 200,
+      message: '查询成功',
+      data: {
+        list: pagedList,
+        total: total,
+        page: page,
+        size: size,
+        totalPages: Math.ceil(total / size)
+      }
+    })
+  }
+  return request.get('/holidays', { params })
+}
+
+// 添加节假日
+export const addHoliday = (data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '添加成功',
+      data: {
+        id: Date.now(),
+        holidayDate: data.holidayDate,
+        holidayName: data.holidayName,
+        isWorkday: data.isWorkday,
+        year: new Date(data.holidayDate).getFullYear(),
+        createdAt: new Date().toISOString()
+      }
+    })
+  }
+  return request.post('/holidays', data)
+}
+
+// 删除节假日
+export const deleteHoliday = (id) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '删除成功',
+      data: null
+    })
+  }
+  return request.delete(`/holidays/${id}`)
+}
+
+// 批量导入节假日
+export const batchImportHolidays = (data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '批量导入完成',
+      data: {
+        total: data.holidays.length,
+        successCount: data.holidays.length,
+        skipCount: 0,
+        skipped: []
+      }
+    })
+  }
+  return request.post('/holidays/batch', data)
 }
