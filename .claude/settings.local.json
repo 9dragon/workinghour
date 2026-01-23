@@ -34,7 +34,8 @@
       "Bash(taskkill:*)",
       "Bash(findstr:*)",
       "Bash(netstat:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(ls:*)"
     ]
   }
 }
