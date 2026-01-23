@@ -48,19 +48,25 @@ const routes = [
         path: 'check/integrity',
         name: 'IntegrityCheck',
         component: () => import('@/views/IntegrityCheck.vue'),
-        meta: { title: '工时完整性检查' }
+        meta: { title: '周报提交检查' }
       },
       {
-        path: 'check/compliance',
-        name: 'ComplianceCheck',
-        component: () => import('@/views/ComplianceCheck.vue'),
-        meta: { title: '工时合规性检查' }
+        path: 'check/hours',
+        name: 'WorkHoursCheck',
+        component: () => import('@/views/WorkHoursCheck.vue'),
+        meta: { title: '工作时长检查' }
+      },
+      {
+        path: 'check/holidays',
+        name: 'HolidayManagement',
+        component: () => import('@/views/HolidayManagement.vue'),
+        meta: { title: '节假日管理' }
       },
       {
         path: 'check/history',
         name: 'CheckHistory',
         component: () => import('@/views/CheckHistory.vue'),
-        meta: { title: '核对历史记录' }
+        meta: { title: '核对历史' }
       },
       {
         path: 'settings',

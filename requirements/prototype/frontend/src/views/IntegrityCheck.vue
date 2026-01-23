@@ -20,9 +20,10 @@
             clearable
             filterable
             style="width: 200px"
+            @change="handleDeptChange"
           >
             <el-option
-              v-for="item in deptList"
+              v-for="item in dataDict.departments"
               :key="item"
               :label="item"
               :value="item"
@@ -38,21 +39,12 @@
             style="width: 150px"
           >
             <el-option
-              v-for="item in userList"
-              :key="item"
-              :label="item"
-              :value="item"
+              v-for="item in filteredUsers"
+              :key="item.userName"
+              :label="item.userName"
+              :value="item.userName"
             />
           </el-select>
-        </el-form-item>
-        <el-form-item label="工作日定义">
-          <el-checkbox-group v-model="workdays">
-            <el-checkbox :label="1">周一</el-checkbox>
-            <el-checkbox :label="2">周二</el-checkbox>
-            <el-checkbox :label="3">周三</el-checkbox>
-            <el-checkbox :label="4">周四</el-checkbox>
-            <el-checkbox :label="5">周五</el-checkbox>
-          </el-checkbox-group>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="checking" @click="handleCheck">
@@ -67,26 +59,40 @@
     <!-- 汇总信息 -->
     <el-card v-if="summaryData" class="summary-card">
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="4">
           <div class="summary-item">
             <div class="summary-label">核对总人数</div>
             <div class="summary-value">{{ summaryData.totalUsers }}</div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :span="5">
           <div class="summary-item">
-            <div class="summary-label">存在缺失人数</div>
+            <div class="summary-label">存在空缺人数</div>
             <div class="summary-value warning">{{ summaryData.missingUsers }}</div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :span="5">
           <div class="summary-item">
-            <div class="summary-label">总缺失天数</div>
-            <div class="summary-value danger">{{ summaryData.totalMissingDays }}</div>
+            <div class="summary-label">总空缺工作日天数</div>
+            <div class="summary-value danger">{{ summaryData.totalMissingWorkdays }}</div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :span="5">
           <div class="summary-item">
+            <div class="summary-label">存在重复人数</div>
+            <div class="summary-value info">{{ summaryData.duplicateUsers }}</div>
+          </div>
+        </el-col>
+        <el-col :span="5">
+          <div class="summary-item">
+            <div class="summary-label">总重复工作日天数</div>
+            <div class="summary-value info">{{ summaryData.totalDuplicateWorkdays }}</div>
+          </div>
+        </el-col>
+      </el-row>
+      <el-row :gutter="20" style="margin-top: 16px">
+        <el-col :span="24">
+          <div class="summary-item rate-item">
             <div class="summary-label">完整性百分比</div>
             <div class="summary-value highlight">{{ summaryData.integrityRate.toFixed(2) }}%</div>
           </div>
@@ -100,42 +106,42 @@
         <div class="card-header">
           <el-icon><Document /></el-icon>
           <span>核对结果</span>
-          <el-button type="primary" size="small" @click="handleExportReport">
-            <el-icon><Download /></el-icon>
-            导出报告
-          </el-button>
         </div>
       </template>
 
-      <el-table :data="tableData" border stripe height="calc(100vh - 480px)">
+      <el-table :data="tableData" border stripe height="calc(100vh - 500px)">
         <el-table-column type="index" label="序号" width="60" fixed />
         <el-table-column prop="deptName" label="部门名称" width="150" fixed />
         <el-table-column prop="userName" label="员工姓名" width="120" fixed />
-        <el-table-column prop="missingDates" label="缺失日期" min-width="300" show-overflow-tooltip>
+        <el-table-column prop="issueType" label="问题类型" width="100" align="center">
           <template #default="{ row }">
-            <el-tag
-              v-for="date in row.missingDateList"
-              :key="date"
-              size="small"
-              style="margin-right: 4px; margin-bottom: 4px"
-              type="danger"
-            >
-              {{ date }}
+            <el-tag :type="row.issueType === 'missing' ? 'danger' : 'warning'" size="small">
+              {{ row.issueType === 'missing' ? '空缺' : '重复' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="missingDays" label="缺失天数" width="100" align="center">
+        <el-table-column prop="serialNo" label="工单序号" width="120">
           <template #default="{ row }">
-            <span class="missing-count">{{ row.missingDays }}</span>
+            <span v-if="row.issueType === 'duplicate'">{{ row.serialNo }}</span>
+            <span v-else class="text-gray">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="lastSubmitDate" label="最近提交日期" width="120" />
+        <el-table-column prop="gapStartDate" label="开始日期" width="120" />
+        <el-table-column prop="gapEndDate" label="结束日期" width="120" />
+        <el-table-column prop="affectedWorkdays" label="影响工作日天数" width="140" align="center">
+          <template #default="{ row }">
+            <span :class="row.issueType === 'missing' ? 'missing-count' : 'duplicate-count'">
+              {{ row.affectedWorkdays }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
       </el-table>
     </el-card>
 
     <!-- 无结果提示 -->
     <el-card v-else-if="!checking && hasChecked" class="empty-card">
-      <el-empty description="核对完成，数据完整，未发现缺失工时记录" />
+      <el-empty description="核对完成，数据完整，未发现空缺或重复记录" />
     </el-card>
   </div>
 </template>
@@ -143,15 +149,17 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { checkIntegrity, getDataDict } from '@/api'
+import { checkIntegrityConsistency, getDataDict } from '@/api'
 
 const checking = ref(false)
 const hasChecked = ref(false)
 const tableData = ref([])
 const summaryData = ref(null)
-const deptList = ref([])
-const userList = ref([])
-const workdays = ref([1, 2, 3, 4, 5])
+const dataDict = ref({
+  departments: [],
+  users: []
+})
+const checkNo = ref('')
 
 const checkForm = reactive({
   deptName: '',
@@ -160,14 +168,25 @@ const checkForm = reactive({
 
 const dateRange = ref([])
 
+const filteredUsers = computed(() => {
+  if (!checkForm.deptName) {
+    return dataDict.value.users
+  }
+  return dataDict.value.users.filter(user => user.deptName === checkForm.deptName)
+})
+
 const loadDict = async () => {
   try {
     const res = await getDataDict()
-    deptList.value = res.data.departments || []
-    userList.value = res.data.users || []
+    dataDict.value.departments = res.data.departments || []
+    dataDict.value.users = res.data.users || []
   } catch (error) {
     console.error('加载数据字典失败:', error)
   }
+}
+
+const handleDeptChange = () => {
+  checkForm.userName = ''
 }
 
 const handleCheck = async () => {
@@ -183,24 +202,24 @@ const handleCheck = async () => {
     const params = {
       startDate: dateRange.value[0],
       endDate: dateRange.value[1],
-      deptName: checkForm.deptName,
-      userName: checkForm.userName,
-      workdays: workdays.value
+      deptName: checkForm.deptName || null,
+      userName: checkForm.userName || null
     }
-    const res = await checkIntegrity(params)
+    const res = await checkIntegrityConsistency(params)
     summaryData.value = res.data.summary
-    tableData.value = (res.data.list || []).map(item => ({
-      ...item,
-      missingDateList: item.missingDates?.split(',').map(d => d.trim()) || []
-    }))
+    tableData.value = res.data.list || []
+    checkNo.value = res.data.checkNo
     hasChecked.value = true
 
     if (tableData.value.length === 0) {
       ElMessage.success('核对完成，数据完整')
     } else {
-      ElMessage.warning(`发现 ${tableData.value.length} 人存在工时缺失`)
+      const missingCount = tableData.value.filter(item => item.issueType === 'missing').length
+      const duplicateCount = tableData.value.filter(item => item.issueType === 'duplicate').length
+      ElMessage.warning(`发现 ${missingCount} 人存在空缺，${duplicateCount} 人存在重复`)
     }
   } catch (error) {
+    ElMessage.error(error.message || '核对失败')
     console.error('核对失败:', error)
   } finally {
     checking.value = false
@@ -211,26 +230,10 @@ const handleReset = () => {
   checkForm.deptName = ''
   checkForm.userName = ''
   dateRange.value = []
-  workdays.value = [1, 2, 3, 4, 5]
   tableData.value = []
   summaryData.value = null
   hasChecked.value = false
-}
-
-const handleExportReport = async () => {
-  try {
-    const params = {
-      type: 'integrity',
-      startDate: dateRange.value[0],
-      endDate: dateRange.value[1],
-      deptName: checkForm.deptName,
-      userName: checkForm.userName
-    }
-    // 实际调用导出 API
-    ElMessage.success('报告导出成功')
-  } catch (error) {
-    console.error('导出报告失败:', error)
-  }
+  checkNo.value = ''
 }
 
 onMounted(() => {
@@ -260,6 +263,18 @@ onMounted(() => {
   border-radius: 4px;
 }
 
+.summary-item.rate-item {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.summary-item.rate-item .summary-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.summary-item.rate-item .summary-value {
+  color: #fff;
+}
+
 .summary-label {
   font-size: 14px;
   color: #909399;
@@ -273,7 +288,7 @@ onMounted(() => {
 }
 
 .summary-value.highlight {
-  color: #409EFF;
+  color: #67C23A;
 }
 
 .summary-value.warning {
@@ -282,6 +297,10 @@ onMounted(() => {
 
 .summary-value.danger {
   color: #F56C6C;
+}
+
+.summary-value.info {
+  color: #409EFF;
 }
 
 .result-card {
@@ -305,6 +324,15 @@ onMounted(() => {
 .missing-count {
   color: #F56C6C;
   font-weight: 600;
+}
+
+.duplicate-count {
+  color: #E6A23C;
+  font-weight: 600;
+}
+
+.text-gray {
+  color: #909399;
 }
 
 .empty-card {

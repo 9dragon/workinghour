@@ -50,15 +50,19 @@
           </template>
           <el-menu-item index="/check/integrity">
             <el-icon><Clock /></el-icon>
-            <span>完整性检查</span>
+            <span>周报提交检查</span>
           </el-menu-item>
-          <el-menu-item index="/check/compliance">
+          <el-menu-item index="/check/hours">
             <el-icon><Warning /></el-icon>
-            <span>合规性检查</span>
+            <span>工作时长检查</span>
+          </el-menu-item>
+          <el-menu-item index="/check/holidays">
+            <el-icon><Calendar /></el-icon>
+            <span>节假日管理</span>
           </el-menu-item>
           <el-menu-item index="/check/history">
             <el-icon><Notebook /></el-icon>
-            <span>核对历史记录</span>
+            <span>核对历史</span>
           </el-menu-item>
         </el-sub-menu>
 
