@@ -4,10 +4,10 @@
 
 |字段名称|内容|
 |---|---|
-|文档版本|V1.0.0|
+|文档版本|V1.1.0|
 |文档作者|全栈软件开发工程师|
 |创建日期|2026-01-15|
-|关联文档|《架构设计说明书 V1.2.0》《需求规格书 V1.1.0》《数据库详细设计 V1.0.0》|
+|关联文档|《架构设计说明书 V1.3.0》《需求规格书 V1.2.0》《数据库详细设计 V1.2.0》|
 |协议|HTTP/HTTPS|
 |数据格式|JSON（默认）/ FormData（文件上传）|
 |字符编码|UTF-8|
@@ -78,11 +78,12 @@ Authorization: Bearer <JWT_TOKEN>
 |模块|接口数量|说明|
 |---|---|---|
 |用户认证|3|登录、登出、令牌刷新|
-|数据导入|4|文件上传、记录查询、批次详情、报告下载|
+|数据导入|6|文件上传、获取数据字典、记录查询、批次详情、报告下载、批次数据、批次数据导出|
 |工时查询|3|项目维度、组织维度、结果导出|
-|工时核对|5|完整性检查、合规性检查、核对历史、报告下载、数据字典|
-|系统设置|3|数据备份、数据恢复、配置管理|
-**总计**|**22**||
+|工时核对|6|周报提交完整性检查、工作时长一致性检查、核对历史、核对详情、下载核对报告、获取数据字典|
+|节假日管理|5|节假日列表、添加节假日、删除节假日、批量导入、工作日计算|
+|系统设置|4|数据备份、数据恢复、获取配置、更新配置|
+**总计**|**28**||
 
 ---
 
@@ -277,9 +278,11 @@ Content-Type: multipart/form-data
 
 **业务规则：**
 - 仅导入审批结果为"通过"且审批状态为"已完成"的记录
-- 唯一性标识：姓名+开始时间+项目名称
-- **同批次内**：允许同一人同一时间同一项目提交多条工时
-- **跨批次**：不同批次中同一人同一时间同一项目的数据视为重复
+- Excel采用两层表头结构，一个序号（工单）可能包含多种工时类型，导入时拆分为多条数据库记录
+- **工时类型拆分**：按4种工时类型拆分（项目交付project_delivery、产研项目product_research、售前支持presales_support、部门内务dept_internal）
+- 唯一性标识：序号（serial_no）+ 姓名（user_name）+ 开始时间（start_time）+ 工作类型（work_type）+ 项目名称（project_name）
+- **同批次内**：允许同一人同一时间同一项目同一工时类型提交多条工时记录
+- **跨批次**：不同批次中唯一性标识相同的数据视为重复
 - 默认策略：skip（跳过重复数据），可选：overwrite（覆盖重复数据）
 - 生成导入批次号：格式 `IMP_YYYYMMDDHHMMSS_XXXX`
 
@@ -836,9 +839,9 @@ Content-Type: application/json
 
 ## 六、工时核对模块
 
-### 6.1 工时完整性检查
+### 6.1 周报提交完整性检查
 
-**接口地址：** `POST /api/v1/check/integrity`
+**接口地址：** `POST /api/v1/check/integrity-consistency`
 
 **请求头：**
 
@@ -854,8 +857,7 @@ Content-Type: application/json
   "startDate": "2026-01-01",
   "endDate": "2026-01-31",
   "deptName": "研发部",
-  "userName": "张三",
-  "workdays": [1, 2, 3, 4, 5]
+  "userName": "张三"
 }
 ```
 
@@ -863,13 +865,14 @@ Content-Type: application/json
 |---|---|---|---|---|
 |startDate|string|是|-|核对开始日期，格式：YYYY-MM-DD|
 |endDate|string|是|-|核对结束日期，格式：YYYY-MM-DD|
-|deptName|string|否|-|部门名称，不传则核对所有部门|
-|userName|string|否|-|人员姓名，不传则核对部门内所有人员|
-|workdays|array|否|[1,2,3,4,5]|工作日定义，1-7对应周一至周日|
+|deptName|string|否|null|部门名称，不传则核对所有部门|
+|userName|string|否|null|人员姓名，不传则核对部门内所有人员|
 
 **业务规则：**
-- 时间范围不超过3个月（约90天）
-- 工作日内每个员工应至少提交一条工时记录
+- 无时间范围限制（不限制3个月）
+- 自动排除周末和法定节假日
+- 检查时间空缺（漏报）和时间重复（重复提交）
+- 按工作日天数计算影响天数
 
 **成功响应：**
 
@@ -882,16 +885,30 @@ Content-Type: application/json
     "summary": {
       "totalUsers": 50,
       "missingUsers": 3,
-      "totalMissingDays": 15,
-      "integrityRate": 99.5
+      "totalMissingWorkdays": 15,
+      "duplicateUsers": 2,
+      "totalDuplicateWorkdays": 5,
+      "integrityRate": 97.5
     },
     "list": [
       {
         "deptName": "研发部",
         "userName": "张三",
-        "missingDates": "2026-01-10,2026-01-11,2026-01-15",
-        "missingDays": 3,
-        "lastSubmitDate": "2026-01-14"
+        "issueType": "missing",
+        "gapStartDate": "2026-01-08",
+        "gapEndDate": "2026-01-14",
+        "affectedWorkdays": 4,
+        "description": "未提交周报"
+      },
+      {
+        "deptName": "产品部",
+        "userName": "李四",
+        "issueType": "duplicate",
+        "serialNos": "005, 006",
+        "overlapStartDate": "2026-01-01",
+        "overlapEndDate": "2026-01-10",
+        "affectedWorkdays": 1,
+        "description": "与序号006时间重叠"
       }
     ]
   },
@@ -903,14 +920,14 @@ Content-Type: application/json
 
 |错误码|说明|
 |---|---|
-|4001|核对时间范围不能超过3个月|
-|4002|开始日期不能晚于结束日期|
+|4001|开始日期不能晚于结束日期|
+|4002|核对时间范围内无工时数据|
 
 ---
 
-### 6.2 工时合规性检查
+### 6.2 工作时长一致性检查
 
-**接口地址：** `POST /api/v1/check/compliance`
+**接口地址：** `POST /api/v1/check/work-hours-consistency`
 
 **请求头：**
 
@@ -926,13 +943,7 @@ Content-Type: application/json
   "startDate": "2026-01-01",
   "endDate": "2026-01-31",
   "deptName": "研发部",
-  "userName": "张三",
-  "rules": {
-    "standardHours": 8,
-    "minHours": 4,
-    "maxOvertime": 4,
-    "maxMonthlyOvertime": 80
-  }
+  "userName": "张三"
 }
 ```
 
@@ -940,16 +951,18 @@ Content-Type: application/json
 |---|---|---|---|---|
 |startDate|string|是|-|核对开始日期，格式：YYYY-MM-DD|
 |endDate|string|是|-|核对结束日期，格式：YYYY-MM-DD|
-|deptName|string|否|-|部门名称，不传则核对所有部门|
-|userName|string|否|-|人员姓名，不传则核对部门内所有人员|
-|rules.standardHours|number|否|8|每日标准工作时长（小时）|
-|rules.minHours|number|否|4|每日工作时长下限（小时）|
-|rules.maxOvertime|number|否|4|每日加班时长上限（小时）|
-|rules.maxMonthlyOvertime|number|否|80|每月加班时长上限（小时）|
+|deptName|string|否|null|部门名称，不传则核对所有部门|
+|userName|string|否|null|人员姓名，不传则核对部门内所有人员|
 
 **业务规则：**
-- 时间范围不超过3个月（约90天）
-- 异常类型：工时过短、加班超标、累计超标、数据异常
+- 无时间范围限制（不限制3个月）
+- 按序号（serial_no）聚合工作时长，分别统计4种工时类型
+- 加班时长不计入工作时长总和
+- 请假时长用于扣减法定工作时间
+- 自动排除周末和法定节假日
+- **不支持容差**，必须完全一致才算正常
+- 应工作时長 = 工作时长总和 + 请假时长总和
+- 法定工作时间 = 工作日天数 × 8小时/天
 
 **成功响应：**
 
@@ -960,25 +973,78 @@ Content-Type: application/json
   "data": {
     "checkNo": "CHK_20260115103000_5679",
     "summary": {
-      "totalRecords": 1000,
-      "abnormalRecords": 15,
-      "abnormalUsers": 5,
-      "complianceRate": 98.5,
-      "invalidTypes": {
-        "shortHours": 8,
-        "excessOvertime": 5,
-        "cumulativeExcess": 2
+      "totalSerials": 200,
+      "normalSerials": 180,
+      "shortSerials": 12,
+      "excessSerials": 8,
+      "complianceRate": 90.0,
+      "workTypeStats": {
+        "project_delivery": {
+          "totalHours": 3600,
+          "avgHours": 18.0
+        },
+        "product_research": {
+          "totalHours": 1800,
+          "avgHours": 9.0
+        },
+        "presales_support": {
+          "totalHours": 400,
+          "avgHours": 2.0
+        },
+        "dept_internal": {
+          "totalHours": 200,
+          "avgHours": 1.0
+        }
       }
     },
     "list": [
       {
-        "deptName": "研发部",
+        "serialNo": "001",
         "userName": "张三",
-        "date": "2026-01-15",
-        "workHours": 3.0,
-        "overtimeHours": 0.0,
-        "abnormalType": "shortHours",
-        "abnormalDesc": "工作时长3小时，低于下限4小时"
+        "startTime": "2026-01-01",
+        "endTime": "2026-01-07",
+        "projectDeliveryHours": 20,
+        "productResearchHours": 10,
+        "presalesSupportHours": 2,
+        "deptInternalHours": 0,
+        "totalWorkHours": 32,
+        "leaveHours": 8,
+        "expectedWorkHours": 40,
+        "legalWorkHours": 40,
+        "difference": 0,
+        "status": "normal"
+      },
+      {
+        "serialNo": "002",
+        "userName": "李四",
+        "startTime": "2026-01-01",
+        "endTime": "2026-01-07",
+        "projectDeliveryHours": 25,
+        "productResearchHours": 8,
+        "presalesSupportHours": 4,
+        "deptInternalHours": 0,
+        "totalWorkHours": 37,
+        "leaveHours": 0,
+        "expectedWorkHours": 37,
+        "legalWorkHours": 40,
+        "difference": -3,
+        "status": "short"
+      },
+      {
+        "serialNo": "003",
+        "userName": "王五",
+        "startTime": "2026-01-01",
+        "endTime": "2026-01-07",
+        "projectDeliveryHours": 30,
+        "productResearchHours": 8,
+        "presalesSupportHours": 5,
+        "deptInternalHours": 0,
+        "totalWorkHours": 43,
+        "leaveHours": 0,
+        "expectedWorkHours": 43,
+        "legalWorkHours": 40,
+        "difference": 3,
+        "status": "excess"
       }
     ]
   },
@@ -986,12 +1052,31 @@ Content-Type: application/json
 }
 ```
 
+**响应字段说明：**
+
+|字段名|类型|说明|
+|---|---|---|
+|serialNo|string|序号（工单号）|
+|userName|string|员工姓名|
+|startTime|string|工单开始时间|
+|endTime|string|工单结束时间|
+|projectDeliveryHours|number|项目交付工作时长（小时）|
+|productResearchHours|number|产研项目工作时长（小时）|
+|presalesSupportHours|number|售前支持工作时长（小时）|
+|deptInternalHours|number|部门内务工作时长（小时）|
+|totalWorkHours|number|工作时长总和（4种类型之和，小时）|
+|leaveHours|number|请假时长总和（小时）|
+|expectedWorkHours|number|应工作时長 = 工作时长总和 + 请假时长总和（小时）|
+|legalWorkHours|number|法定工作时间 = 工作日天数 × 8小时/天（小时）|
+|difference|number|差值 = 应工作时長 - 法定工作时间（小时）|
+|status|string|状态：normal（正常）/ short（偏低）/ excess（偏高）|
+
 **错误码：**
 
 |错误码|说明|
 |---|---|
-|4001|核对时间范围不能超过3个月|
-|4002|开始日期不能晚于结束日期|
+|4001|开始日期不能晚于结束日期|
+|4002|核对时间范围内无工时数据|
 
 ---
 
@@ -1009,7 +1094,7 @@ Authorization: Bearer <JWT_TOKEN>
 
 |参数名|类型|必填|默认值|说明|
 |---|---|---|---|---|
-|checkType|string|否|-|核对类型：integrity/compliance，不传则查询全部|
+|checkType|string|否|-|核对类型：integrity_consistency（周报提交完整性）/ work_hours_consistency（工作时长一致性），不传则查询全部|
 |startDate|string|否|-|核对开始日期，格式：YYYY-MM-DD|
 |endDate|string|否|-|核对结束日期，格式：YYYY-MM-DD|
 |page|integer|否|1|页码，从1开始|
@@ -1026,8 +1111,8 @@ Authorization: Bearer <JWT_TOKEN>
       {
         "id": 1,
         "checkNo": "CHK_20260115103000_5678",
-        "checkType": "integrity",
-        "checkTypeName": "完整性检查",
+        "checkType": "integrity_consistency",
+        "checkTypeName": "周报提交完整性",
         "startDate": "2026-01-01",
         "endDate": "2026-01-31",
         "deptName": "研发部",
@@ -1035,7 +1120,8 @@ Authorization: Bearer <JWT_TOKEN>
         "checkResult": {
           "totalUsers": 50,
           "missingUsers": 3,
-          "integrityRate": 99.5
+          "totalMissingWorkdays": 15,
+          "integrityRate": 97.5
         },
         "checkUser": "admin",
         "checkTime": "2026-01-15T10:30:00+08:00"
@@ -1191,11 +1277,302 @@ Authorization: Bearer <JWT_TOKEN>
 
 ---
 
-## 七、系统设置模块
+## 七、节假日管理模块
 
-### 7.1 数据备份
+### 7.1 查询节假日列表
 
-**接口地址：** `GET /api/v1/settings/backup`
+**接口地址：** `GET /api/v1/holidays`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**查询参数：**
+
+|参数名|类型|必填|默认值|说明|
+|---|---|---|---|---|
+|year|integer|否|-|年份，不传则查询所有年份|
+|startDate|string|否|-|查询开始日期，格式：YYYY-MM-DD|
+|endDate|string|否|-|查询结束日期，格式：YYYY-MM-DD|
+|page|integer|否|1|页码，从1开始|
+|size|integer|否|20|每页条数，支持20/50/100|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "查询成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "holidayDate": "2026-01-01",
+        "holidayName": "元旦",
+        "isWorkday": 0,
+        "year": 2026,
+        "createdAt": "2026-01-15T10:00:00+08:00"
+      },
+      {
+        "id": 2,
+        "holidayDate": "2026-01-02",
+        "holidayName": "元旦",
+        "isWorkday": 0,
+        "year": 2026,
+        "createdAt": "2026-01-15T10:00:00+08:00"
+      },
+      {
+        "id": 3,
+        "holidayDate": "2026-01-03",
+        "holidayName": "元旦",
+        "isWorkday": 0,
+        "year": 2026,
+        "createdAt": "2026-01-15T10:00:00+08:00"
+      }
+    ],
+    "total": 15,
+    "page": 1,
+    "size": 20,
+    "totalPages": 1
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+**响应字段说明：**
+
+|字段名|类型|说明|
+|---|---|---|
+|holidayDate|string|节假日日期，格式：YYYY-MM-DD|
+|holidayName|string|节假日名称|
+|isWorkday|integer|是否为调休工作日：0-否/1-是|
+|year|integer|年份|
+
+---
+
+### 7.2 添加节假日
+
+**接口地址：** `POST /api/v1/holidays`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
+```
+
+**请求参数：**
+
+```json
+{
+  "holidayDate": "2026-01-01",
+  "holidayName": "元旦",
+  "isWorkday": 0
+}
+```
+
+|参数名|类型|必填|默认值|说明|
+|---|---|---|---|---|
+|holidayDate|string|是|-|节假日日期，格式：YYYY-MM-DD|
+|holidayName|string|是|-|节假日名称|
+|isWorkday|integer|否|0|是否为调休工作日：0-否/1-是|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "添加成功",
+  "data": {
+    "id": 1,
+    "holidayDate": "2026-01-01",
+    "holidayName": "元旦",
+    "isWorkday": 0,
+    "year": 2026,
+    "createdAt": "2026-01-15T10:30:00+08:00"
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+**错误码：**
+
+|错误码|说明|
+|---|---|
+|6001|节假日日期已存在|
+|6002|日期格式错误|
+
+---
+
+### 7.3 删除节假日
+
+**接口地址：** `DELETE /api/v1/holidays/{id}`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**路径参数：**
+
+|参数名|类型|必填|说明|
+|---|---|---|---|
+|id|integer|是|节假日记录ID|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "删除成功",
+  "data": null,
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+**错误码：**
+
+|错误码|说明|
+|---|---|
+|6011|节假日记录不存在|
+
+---
+
+### 7.4 批量导入节假日
+
+**接口地址：** `POST /api/v1/holidays/batch`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
+```
+
+**请求参数：**
+
+```json
+{
+  "holidays": [
+    {"holidayDate": "2026-01-01", "holidayName": "元旦", "isWorkday": 0},
+    {"holidayDate": "2026-01-02", "holidayName": "元旦", "isWorkday": 0},
+    {"holidayDate": "2026-01-03", "holidayName": "元旦", "isWorkday": 0},
+    {"holidayDate": "2026-02-10", "holidayName": "春节", "isWorkday": 0},
+    {"holidayDate": "2026-02-11", "holidayName": "春节", "isWorkday": 0}
+  ]
+}
+```
+
+|参数名|类型|必填|说明|
+|---|---|---|---|
+|holidays|array|是|节假日数组|
+|holidays[].holidayDate|string|是|节假日日期，格式：YYYY-MM-DD|
+|holidays[].holidayName|string|是|节假日名称|
+|holidays[].isWorkday|integer|否|是否为调休工作日：0-否/1-是，默认0|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "批量导入完成",
+  "data": {
+    "total": 5,
+    "successCount": 5,
+    "skipCount": 0,
+    "skipped": []
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+**响应字段说明：**
+
+|字段名|类型|说明|
+|---|---|---|
+|total|integer|总数|
+|successCount|integer|成功导入数量|
+|skipCount|integer|跳过数量（日期已存在）|
+|skipped|array|跳过的日期列表|
+
+---
+
+### 7.5 工作日计算
+
+**接口地址：** `POST /api/v1/holidays/calculate-workdays`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
+```
+
+**请求参数：**
+
+```json
+{
+  "startDate": "2026-01-01",
+  "endDate": "2026-01-31"
+}
+```
+
+|参数名|类型|必填|说明|
+|---|---|---|---|
+|startDate|string|是|开始日期，格式：YYYY-MM-DD|
+|endDate|string|是|结束日期，格式：YYYY-MM-DD|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "计算成功",
+  "data": {
+    "startDate": "2026-01-01",
+    "endDate": "2026-01-31",
+    "totalDays": 31,
+    "workdays": 22,
+    "weekendDays": 9,
+    "holidays": 3,
+    "workdayDates": [
+      "2026-01-02",
+      "2026-01-05",
+      "2026-01-06",
+      "2026-01-07",
+      "2026-01-08",
+      "2026-01-09"
+    ]
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+**响应字段说明：**
+
+|字段名|类型|说明|
+|---|---|---|
+|totalDays|integer|总天数|
+|workdays|integer|工作日天数（排除周末和节假日）|
+|weekendDays|integer|周末天数（周六、周日）|
+|holidays|integer|节假日天数|
+|workdayDates|array|工作日日期列表|
+
+**业务规则：**
+- 自动排除周六、周日（除非标记为调休工作日）
+- 自动排除法定节假日（除非标记为调休工作日）
+- 工作日 = 总天数 - 周末日 - 节假日 + 调休工作日
+
+---
+
+## 八、系统设置模块
+
+### 8.1 数据备份
+
+**接口地址：** `POST /api/v1/system/backup`
 
 **请求头：**
 
@@ -1216,9 +1593,9 @@ Authorization: Bearer <JWT_TOKEN>
 
 ---
 
-### 7.2 数据恢复
+### 8.2 数据恢复
 
-**接口地址：** `POST /api/v1/settings/restore`
+**接口地址：** `POST /api/v1/system/restore`
 
 **请求头：**
 
@@ -1274,9 +1651,9 @@ Content-Type: multipart/form-data
 
 ---
 
-### 7.3 获取系统配置
+### 8.3 获取系统配置
 
-**接口地址：** `GET /api/v1/settings/config`
+**接口地址：** `GET /api/v1/system/config`
 
 **请求头：**
 
@@ -1308,10 +1685,10 @@ Authorization: Bearer <JWT_TOKEN>
     ],
     "check": [
       {
-        "configKey": "check.compliance.standard_hours",
+        "configKey": "check.standard_hours",
         "configValue": "8",
         "configType": "number",
-        "description": "合规性检查：每日标准工作时长（小时）",
+        "description": "工时核对：每日标准工作时长（小时）",
         "isEditable": true
       }
     ],
@@ -1331,9 +1708,9 @@ Authorization: Bearer <JWT_TOKEN>
 
 ---
 
-### 7.4 更新系统配置
+### 8.4 更新系统配置
 
-**接口地址：** `PUT /api/v1/settings/config`
+**接口地址：** `PUT /api/v1/system/config`
 
 **请求头：**
 
@@ -1799,6 +2176,7 @@ X-API-Sunset: 2026-12-31
 |用户认证|登出|POST|/api/v1/auth/logout|是|
 |用户认证|令牌刷新|POST|/api/v1/auth/refresh|是|
 |数据导入|文件上传|POST|/api/v1/data/import|是|
+|数据导入|获取数据字典|GET|/api/v1/data/dict|是|
 |数据导入|查询记录|GET|/api/v1/data/records|是|
 |数据导入|批次详情|GET|/api/v1/data/records/{batchNo}|是|
 |数据导入|下载报告|GET|/api/v1/data/records/{batchNo}/report|是|
@@ -1807,18 +2185,22 @@ X-API-Sunset: 2026-12-31
 |工时查询|项目维度|GET|/api/v1/query/project|是|
 |工时查询|组织维度|GET|/api/v1/query/organization|是|
 |工时查询|导出结果|POST|/api/v1/query/export|是|
-|工时核对|完整性检查|POST|/api/v1/check/integrity|是|
-|工时核对|合规性检查|POST|/api/v1/check/compliance|是|
+|工时核对|周报提交完整性检查|POST|/api/v1/check/integrity-consistency|是|
+|工时核对|工作时长一致性检查|POST|/api/v1/check/work-hours-consistency|是|
 |工时核对|核对历史|GET|/api/v1/check/history|是|
 |工时核对|核对详情|GET|/api/v1/check/history/{checkNo}|是|
 |工时核对|下载报告|GET|/api/v1/check/history/{checkNo}/report|是|
-|工时核对|数据字典|GET|/api/v1/data/dict|是|
-|系统设置|数据备份|GET|/api/v1/settings/backup|是|
-|系统设置|数据恢复|POST|/api/v1/settings/restore|是|
-|系统设置|获取配置|GET|/api/v1/settings/config|是|
-|系统设置|更新配置|PUT|/api/v1/settings/config|是|
+|节假日管理|查询节假日列表|GET|/api/v1/holidays|是|
+|节假日管理|添加节假日|POST|/api/v1/holidays|是|
+|节假日管理|删除节假日|DELETE|/api/v1/holidays/{id}|是|
+|节假日管理|批量导入节假日|POST|/api/v1/holidays/batch|是|
+|节假日管理|工作日计算|POST|/api/v1/holidays/calculate-workdays|是|
+|系统设置|数据备份|POST|/api/v1/system/backup|是|
+|系统设置|数据恢复|POST|/api/v1/system/restore|是|
+|系统设置|获取配置|GET|/api/v1/system/config|是|
+|系统设置|更新配置|PUT|/api/v1/system/config|是|
 
-**总计：22个接口**
+**总计：28个接口**
 
 ### 18.2 字段命名转换规范
 
@@ -1849,8 +2231,10 @@ X-API-Sunset: 2026-12-31
 |版本号|变更时间|变更内容|变更人|
 |---|---|---|---|
 |V1.0.0|2026-01-15|初始API接口设计，包含22个接口的完整定义|全栈软件开发工程师|
+|V1.1.0|2026-01-23|基于需求V1.2.0和架构V1.3.0重新设计工时核对接口；周报提交完整性检查（时间空缺+时间重复，自动排除周末和节假日，无时间限制）；工作时长一致性检查（按序号聚合4种工时类型+请假时长，对比法定工作时间，无容差）；更新数据导入业务规则（工时类型拆分、唯一性标识更新）；新增节假日管理模块（5个接口）；更新接口清单（22→28）；更新接口路径（integrity-consistency、work-hours-consistency）|全栈软件开发工程师|
+|V1.1.1|2026-01-23|以实际代码为准，统一系统设置模块接口路径；将/api/v1/settings/*改为/api/v1/system/*；数据备份接口方法从GET改为POST；删除check.compliance.min_hours等过时配置项，保留check.standard_hours配置；更新接口清单中的系统设置模块路径|全栈软件开发工程师|
 
 ---
 
-**文档生成时间：** 2026-01-15
-**关联文档：** 架构设计说明书 V1.2.0、需求规格书 V1.1.0、数据库详细设计 V1.0.0
+**文档生成时间：** 2026-01-23
+**关联文档：** 架构设计说明书 V1.3.0、需求规格书 V1.2.0、数据库详细设计 V1.2.0
