@@ -30,7 +30,7 @@ def check_integrity_consistency():
         # 验证日期范围
         is_valid, error_msg, days_count = calculate_date_range(start_date, end_date, max_days=90)
         if not is_valid:
-            return error_response(4001, error_msg), 400
+            return error_response(4001, error_msg, http_status=400)
 
         # 获取工作日列表
         start = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -234,7 +234,7 @@ def check_work_hours_consistency():
         # 验证日期范围
         is_valid, error_msg, _ = calculate_date_range(start_date, end_date, max_days=90)
         if not is_valid:
-            return error_response(4001, error_msg), 400
+            return error_response(4001, error_msg, http_status=400)
 
         start = datetime.strptime(start_date, '%Y-%m-%d').date()
         end = datetime.strptime(end_date, '%Y-%m-%d').date()
@@ -460,17 +460,17 @@ def get_check_history():
         })
 
     except Exception as e:
-        return error_response(500, str(e)), 500
+        return error_response(500, str(e), http_status=500)
 
 
-@check_bp.route('/check/record/<batch_no>', methods=['GET'])
-def get_check_detail(batch_no):
+@check_bp.route('/check/record/<check_no>', methods=['GET'])
+def get_check_detail(check_no):
     """获取核对记录详情"""
     try:
-        record = CheckRecord.query.filter_by(batch_no=batch_no).first()
+        record = CheckRecord.query.filter_by(check_no=check_no).first()
 
         if not record:
-            return error_response(3001, '核对记录不存在'), 404
+            return error_response(3001, '核对记录不存在', http_status=404)
 
         data = record.to_dict()
 
@@ -490,4 +490,4 @@ def get_check_detail(batch_no):
         return success_response(data=data)
 
     except Exception as e:
-        return error_response(500, str(e)), 500
+        return error_response(500, str(e), http_status=500)

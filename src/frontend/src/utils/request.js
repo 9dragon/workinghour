@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store'
 
 // 模拟模式：用于无后端时体验前端原型
-const MOCK_MODE = true
+const MOCK_MODE = false
 
 // 创建 axios 实例
 const request = axios.create({

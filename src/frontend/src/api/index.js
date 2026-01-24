@@ -891,3 +891,73 @@ export const batchImportHolidays = (data) => {
   }
   return request.post('/holidays/batch', data)
 }
+
+// 同步节假日（从第三方API）
+export const syncHolidays = (year, mode = 'skip') => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '同步成功',
+      data: {
+        year: year,
+        total: 15,
+        successCount: 15,
+        skipCount: 0,
+        dataSource: 'api'
+      }
+    })
+  }
+  return request.post(`/holidays/sync/${year}`, { mode })
+}
+
+// 生成周末数据
+export const generateWeekends = (year, mode = 'skip') => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '生成成功',
+      data: {
+        year: year,
+        total: 104,
+        generatedCount: 104,
+        skipCount: 0,
+        dataSource: 'auto'
+      }
+    })
+  }
+  return request.post(`/holidays/generate-weekends/${year}`, { mode })
+}
+
+// 清空所有节假日
+export const clearAllHolidays = () => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '清空成功',
+      data: {
+        deletedCount: 100
+      }
+    })
+  }
+  return request.delete('/holidays/clear-all')
+}
+
+// 获取节假日统计数据
+export const getHolidaySummary = (params) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: {
+        total: 120,
+        legal: 50,
+        workdays: 10,
+        weekends: 104,
+        manual: 5,
+        api: 60,
+        auto: 104
+      }
+    })
+  }
+  return request.get('/holidays/summary', { params })
+}

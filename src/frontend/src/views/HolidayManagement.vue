@@ -1,27 +1,138 @@
 <template>
   <div class="holiday-management-page">
+    <!-- 筛选条件卡片 -->
+    <el-card class="filter-card">
+      <el-form :model="filterForm" inline>
+        <el-form-item label="年份">
+          <el-select
+            v-model="filterForm.year"
+            placeholder="请选择年份"
+            clearable
+            style="width: 150px"
+          >
+            <el-option
+              v-for="year in availableYears"
+              :key="year"
+              :label="year"
+              :value="year"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="调休工作日">
+          <el-select
+            v-model="filterForm.isWorkday"
+            placeholder="全部"
+            clearable
+            style="width: 120px"
+          >
+            <el-option label="是" :value="true" />
+            <el-option label="否" :value="false" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="周末">
+          <el-select
+            v-model="filterForm.isWeekend"
+            placeholder="全部"
+            clearable
+            style="width: 120px"
+          >
+            <el-option label="是" :value="true" />
+            <el-option label="否" :value="false" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="数据来源">
+          <el-select
+            v-model="filterForm.dataSource"
+            placeholder="全部来源"
+            clearable
+            style="width: 130px"
+          >
+            <el-option label="手动录入" value="manual" />
+            <el-option label="API同步" value="api" />
+            <el-option label="自动生成" value="auto" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="日期范围">
+          <el-date-picker
+            v-model="dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            style="width: 260px"
+          />
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" @click="handleQuery">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 工具栏卡片 -->
     <el-card class="toolbar-card">
       <el-row :gutter="20">
-        <el-col :span="8">
-          <el-input
-            v-model="searchYear"
-            placeholder="按年份查询"
-            type="number"
-            clearable
-            @change="handleSearch"
-          >
-            <template #prepend>年份</template>
-          </el-input>
+        <el-col :span="24" class="toolbar-actions">
+          <div class="button-group">
+            <el-button type="success" @click="showSyncDialog" :loading="syncing">
+              <el-icon><Refresh /></el-icon>
+              API 同步
+            </el-button>
+
+            <el-button type="warning" @click="showGenerateWeekendsDialog">
+              <el-icon><Calendar /></el-icon>
+              生成周末
+            </el-button>
+
+            <el-button type="primary" @click="showAddDialog">
+              <el-icon><Plus /></el-icon>
+              添加节假日
+            </el-button>
+
+            <el-button type="danger" @click="handleClearAll" plain>
+              <el-icon><Delete /></el-icon>
+              清空全部
+            </el-button>
+          </div>
         </el-col>
-        <el-col :span="16" class="text-right">
-          <el-button type="primary" @click="showAddDialog">
-            <el-icon><Plus /></el-icon>
-            添加节假日
-          </el-button>
-          <el-button @click="showBatchImportDialog">
-            <el-icon><Upload /></el-icon>
-            批量导入
-          </el-button>
+      </el-row>
+    </el-card>
+
+    <!-- 统计卡片 -->
+    <el-card class="summary-card" v-loading="summaryLoading">
+      <el-row :gutter="20">
+        <el-col :span="6">
+          <div class="summary-item">
+            <div class="summary-label">节假日总数</div>
+            <div class="summary-value">{{ summaryData.total }}</div>
+          </div>
+        </el-col>
+        <el-col :span="6">
+          <div class="summary-item">
+            <div class="summary-label">法定节假日</div>
+            <div class="summary-value normal">{{ summaryData.legal }}</div>
+          </div>
+        </el-col>
+        <el-col :span="6">
+          <div class="summary-item">
+            <div class="summary-label">调休工作日</div>
+            <div class="summary-value warning">{{ summaryData.workdays }}</div>
+          </div>
+        </el-col>
+        <el-col :span="6">
+          <div class="summary-item">
+            <div class="summary-label">周末</div>
+            <div class="summary-value info">{{ summaryData.weekends }}</div>
+          </div>
         </el-col>
       </el-row>
     </el-card>
@@ -33,13 +144,20 @@
         :data="holidayList"
         border
         stripe
-        height="calc(100vh - 300px)"
+        height="calc(100vh - 380px)"
         :default-sort="{ prop: 'holidayDate', order: 'ascending' }"
+        :cell-style="{ 'white-space': 'nowrap' }"
       >
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="holidayDate" label="日期" width="120" />
-        <el-table-column prop="holidayName" label="节假日名称" width="150" />
-        <el-table-column prop="year" label="年份" width="100" />
+        <el-table-column prop="holidayName" label="节假日名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="year" label="年份" width="100" align="center" />
+        <el-table-column prop="isWeekend" label="周末" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.isWeekend" type="info" size="small">是</el-tag>
+            <span v-else style="color: #909399">-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="isWorkday" label="调休工作日" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="row.isWorkday ? 'warning' : 'success'" size="small">
@@ -47,7 +165,18 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180" />
+        <el-table-column prop="dataSource" label="数据来源" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getDataSourceType(row.dataSource)" size="small">
+              {{ getDataSourceLabel(row.dataSource) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createdAt" label="创建时间" width="160" align="center">
+          <template #default="{ row }">
+            {{ formatDateTime(row.createdAt) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="100" align="center" fixed="right">
           <template #default="{ row }">
             <el-button
@@ -68,20 +197,109 @@
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.size"
           :total="pagination.total"
-          :page-sizes="[20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSearch"
-          @current-change="handleSearch"
+          @size-change="handleQuery"
+          @current-change="handleQuery"
         />
       </div>
     </el-card>
+
+    <!-- API同步对话框 -->
+    <el-dialog
+      v-model="syncDialogVisible"
+      title="从第三方 API 同步节假日"
+      width="500px"
+    >
+      <el-form :model="syncForm" label-width="100px">
+        <el-form-item label="选择年份">
+          <el-select v-model="syncForm.year" placeholder="请选择年份" style="width: 100%">
+            <el-option
+              v-for="year in availableYears"
+              :key="year"
+              :label="year"
+              :value="year"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="处理方式">
+          <el-radio-group v-model="syncForm.mode">
+            <el-radio label="skip">跳过已存在数据</el-radio>
+            <el-radio label="overwrite">覆盖已存在数据</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-alert
+          title="说明"
+          type="info"
+          :closable="false"
+          style="margin-bottom: 16px"
+        >
+          <p style="margin-bottom: 8px;">数据来源：timor.tech 免费节假日 API</p>
+          <p style="margin-bottom: 8px;">跳过模式：保留所有已存在的数据</p>
+          <p>覆盖模式：仅覆盖API来源的数据，保留手动添加的数据</p>
+        </el-alert>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="syncDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSync" :loading="syncing">
+          开始同步
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 生成周末对话框 -->
+    <el-dialog
+      v-model="generateWeekendsDialogVisible"
+      title="生成周末数据"
+      width="500px"
+    >
+      <el-form :model="generateWeekendsForm" label-width="100px">
+        <el-form-item label="选择年份">
+          <el-select v-model="generateWeekendsForm.year" placeholder="请选择年份" style="width: 100%">
+            <el-option
+              v-for="year in availableYears"
+              :key="year"
+              :label="year"
+              :value="year"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="处理方式">
+          <el-radio-group v-model="generateWeekendsForm.mode">
+            <el-radio label="skip">跳过已存在数据</el-radio>
+            <el-radio label="overwrite">覆盖已存在数据</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-alert
+          title="说明"
+          type="info"
+          :closable="false"
+          style="margin-bottom: 16px"
+        >
+          <p style="margin-bottom: 8px;">将自动标记该年份的所有周六和周日</p>
+          <p style="margin-bottom: 8px;">跳过模式：保留所有已存在的数据</p>
+          <p>覆盖模式：仅覆盖自动生成的周末数据</p>
+        </el-alert>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="generateWeekendsDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleGenerateWeekends" :loading="generating">
+          开始生成
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- 添加节假日对话框 -->
     <el-dialog
       v-model="addDialogVisible"
       title="添加节假日"
       width="500px"
-      :close-on-click-modal="false"
     >
       <el-form :model="addForm" :rules="addRules" ref="addFormRef" label-width="120px">
         <el-form-item label="日期" prop="holidayDate">
@@ -109,65 +327,94 @@
       </template>
     </el-dialog>
 
-    <!-- 批量导入对话框 -->
+    <!-- 清空确认对话框 -->
     <el-dialog
-      v-model="batchImportDialogVisible"
-      title="批量导入节假日"
-      width="700px"
-      :close-on-click-modal="false"
+      v-model="clearAllDialogVisible"
+      title="清空确认"
+      width="450px"
     >
       <el-alert
-        title="导入格式说明"
-        type="info"
+        title="警告"
+        type="error"
         :closable="false"
         style="margin-bottom: 16px"
       >
-        <p>支持JSON格式批量导入，格式如下：</p>
-        <pre class="json-example">[
-  {"holidayDate": "2026-01-01", "holidayName": "元旦", "isWorkday": false},
-  {"holidayDate": "2026-02-10", "holidayName": "春节", "isWorkday": false}
-]</pre>
+        <p style="margin-bottom: 8px;">此操作将<strong style="color: #f56c6c;">删除所有节假日数据</strong>！</p>
+        <p style="margin-bottom: 8px;">包括手动录入、API同步和自动生成的所有记录</p>
+        <p>此操作不可撤销，请谨慎操作！</p>
       </el-alert>
 
-      <el-input
-        v-model="batchImportData"
-        type="textarea"
-        :rows="12"
-        placeholder="请粘贴JSON格式的节假日数据"
-      />
+      <el-form label-width="100px">
+        <el-form-item label="确认文本">
+          <el-input
+            v-model="clearConfirmText"
+            placeholder="请输入 'DELETE ALL' 以确认"
+          />
+        </el-form-item>
+      </el-form>
 
       <template #footer>
-        <el-button @click="batchImportDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleBatchImport">导入</el-button>
+        <el-button @click="clearAllDialogVisible = false">取消</el-button>
+        <el-button
+          type="danger"
+          @click="confirmClearAll"
+          :disabled="clearConfirmText !== 'DELETE ALL'"
+          :loading="clearing"
+        >
+          确认清空
+        </el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getHolidays,
   addHoliday,
   deleteHoliday,
-  batchImportHolidays
+  syncHolidays,
+  generateWeekends,
+  clearAllHolidays,
+  getHolidaySummary
 } from '@/api'
 
 const router = useRouter()
 
 const loading = ref(false)
 const holidayList = ref([])
-const searchYear = ref('')
+const syncing = ref(false)
+const generating = ref(false)
+const clearing = ref(false)
+const summaryLoading = ref(false)
 const addDialogVisible = ref(false)
-const batchImportDialogVisible = ref(false)
+const syncDialogVisible = ref(false)
+const generateWeekendsDialogVisible = ref(false)
+const clearAllDialogVisible = ref(false)
 const addFormRef = ref(null)
-const batchImportData = ref('')
+const clearConfirmText = ref('')
+const dateRange = ref([])
+
+const summaryData = reactive({
+  total: 0,
+  legal: 0,
+  workdays: 0,
+  weekends: 0
+})
+
+const filterForm = reactive({
+  year: null,
+  isWorkday: null,
+  isWeekend: null,
+  dataSource: ''
+})
 
 const pagination = reactive({
   page: 1,
-  size: 20,
+  size: 10,
   total: 0
 })
 
@@ -175,6 +422,16 @@ const addForm = reactive({
   holidayDate: '',
   holidayName: '',
   isWorkday: false
+})
+
+const syncForm = reactive({
+  year: new Date().getFullYear(),
+  mode: 'skip'
+})
+
+const generateWeekendsForm = reactive({
+  year: new Date().getFullYear(),
+  mode: 'skip'
 })
 
 const addRules = {
@@ -186,11 +443,42 @@ const addRules = {
   ]
 }
 
-const handleSearch = async () => {
+// 可选年份列表（当前年前后5年）
+const availableYears = computed(() => {
+  const currentYear = new Date().getFullYear()
+  return Array.from({ length: 11 }, (_, i) => currentYear - 5 + i)
+})
+
+// 查询按钮点击
+const handleQuery = () => {
+  pagination.page = 1
+  loadHolidays()
+  loadSummary()
+}
+
+// 重置按钮点击
+const handleReset = () => {
+  filterForm.year = null
+  filterForm.isWorkday = null
+  filterForm.isWeekend = null
+  filterForm.dataSource = ''
+  dateRange.value = []
+  pagination.page = 1
+  loadHolidays()
+  loadSummary()
+}
+
+// 加载数据
+const loadHolidays = async () => {
   loading.value = true
   try {
     const params = {
-      year: searchYear.value || undefined,
+      year: filterForm.year || undefined,
+      isWorkday: filterForm.isWorkday ?? undefined,
+      isWeekend: filterForm.isWeekend ?? undefined,
+      dataSource: filterForm.dataSource || undefined,
+      startDate: dateRange.value?.[0] || undefined,
+      endDate: dateRange.value?.[1] || undefined,
       page: pagination.page,
       size: pagination.size
     }
@@ -202,6 +490,76 @@ const handleSearch = async () => {
     ElMessage.error(error.message || '查询失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 加载统计数据
+const loadSummary = async () => {
+  summaryLoading.value = true
+  try {
+    const params = {
+      year: filterForm.year || undefined
+    }
+    const res = await getHolidaySummary(params)
+    Object.assign(summaryData, res.data)
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
+  } finally {
+    summaryLoading.value = false
+  }
+}
+
+const showSyncDialog = () => {
+  syncForm.year = new Date().getFullYear()
+  syncForm.mode = 'skip'
+  syncDialogVisible.value = true
+}
+
+const handleSync = async () => {
+  if (!syncForm.year) {
+    ElMessage.warning('请选择年份')
+    return
+  }
+
+  syncing.value = true
+  try {
+    const res = await syncHolidays(syncForm.year, syncForm.mode)
+    ElMessage.success(`成功同步 ${syncForm.year} 年节假日 ${res.data.successCount} 条`)
+    syncDialogVisible.value = false
+    loadHolidays()
+    loadSummary()
+  } catch (error) {
+    ElMessage.error(error.message || '同步失败')
+  } finally {
+    syncing.value = false
+  }
+}
+
+const showGenerateWeekendsDialog = () => {
+  generateWeekendsForm.year = new Date().getFullYear()
+  generateWeekendsForm.mode = 'skip'
+  generateWeekendsDialogVisible.value = true
+}
+
+const handleGenerateWeekends = async () => {
+  if (!generateWeekendsForm.year) {
+    ElMessage.warning('请选择年份')
+    return
+  }
+
+  generating.value = true
+  try {
+    const res = await generateWeekends(generateWeekendsForm.year, generateWeekendsForm.mode)
+    ElMessage.success(
+      `成功生成 ${generateWeekendsForm.year} 年周末数据 ${res.data.generatedCount} 条`
+    )
+    generateWeekendsDialogVisible.value = false
+    loadHolidays()
+    loadSummary()
+  } catch (error) {
+    ElMessage.error(error.message || '生成失败')
+  } finally {
+    generating.value = false
   }
 }
 
@@ -227,7 +585,8 @@ const handleAdd = async () => {
 
       ElMessage.success('添加成功')
       addDialogVisible.value = false
-      handleSearch()
+      loadHolidays()
+      loadSummary()
     } catch (error) {
       ElMessage.error(error.message || '添加失败')
     }
@@ -248,7 +607,8 @@ const handleDelete = async (row) => {
 
     await deleteHoliday(row.id)
     ElMessage.success('删除成功')
-    handleSearch()
+    loadHolidays()
+    loadSummary()
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(error.message || '删除失败')
@@ -256,50 +616,65 @@ const handleDelete = async (row) => {
   }
 }
 
-const showBatchImportDialog = () => {
-  batchImportData.value = ''
-  batchImportDialogVisible.value = true
+const handleClearAll = () => {
+  clearConfirmText.value = ''
+  clearAllDialogVisible.value = true
 }
 
-const handleBatchImport = async () => {
-  if (!batchImportData.value.trim()) {
-    ElMessage.warning('请输入节假日数据')
+const confirmClearAll = async () => {
+  if (clearConfirmText.value !== 'DELETE ALL') {
+    ElMessage.warning('请输入 DELETE ALL 以确认')
     return
   }
 
+  clearing.value = true
   try {
-    const holidays = JSON.parse(batchImportData.value)
-
-    if (!Array.isArray(holidays)) {
-      throw new Error('数据格式错误：应为数组格式')
-    }
-
-    if (holidays.length === 0) {
-      throw new Error('数据格式错误：数组不能为空')
-    }
-
-    // 验证数据格式
-    for (const item of holidays) {
-      if (!item.holidayDate || !item.holidayName) {
-        throw new Error('数据格式错误：每条记录必须包含 holidayDate 和 holidayName 字段')
-      }
-    }
-
-    const res = await batchImportHolidays({ holidays })
-
-    ElMessage.success(
-      `导入完成！成功 ${res.data.successCount} 条，跳过 ${res.data.skipCount} 条`
-    )
-
-    batchImportDialogVisible.value = false
-    handleSearch()
+    await clearAllHolidays()
+    ElMessage.success('已清空所有节假日数据')
+    clearAllDialogVisible.value = false
+    filterForm.year = null
+    filterForm.isWorkday = null
+    filterForm.isWeekend = null
+    filterForm.dataSource = ''
+    dateRange.value = []
+    pagination.page = 1
+    loadHolidays()
+    loadSummary()
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      ElMessage.error('JSON格式错误，请检查')
-    } else {
-      ElMessage.error(error.message || '导入失败')
-    }
+    ElMessage.error(error.message || '清空失败')
+  } finally {
+    clearing.value = false
   }
+}
+
+const getDataSourceLabel = (source) => {
+  const labels = {
+    'manual': '手动',
+    'api': 'API',
+    'auto': '自动'
+  }
+  return labels[source] || source
+}
+
+const getDataSourceType = (source) => {
+  const types = {
+    'manual': 'primary',
+    'api': 'success',
+    'auto': 'info'
+  }
+  return types[source] || ''
+}
+
+const formatDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return '-'
+  const date = new Date(dateTimeStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
 const goBack = () => {
@@ -307,7 +682,8 @@ const goBack = () => {
 }
 
 onMounted(() => {
-  handleSearch()
+  loadHolidays()
+  loadSummary()
 })
 </script>
 
@@ -315,11 +691,68 @@ onMounted(() => {
 .holiday-management-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+}
+
+.filter-card {
+  margin-bottom: 0;
+}
+
+.filter-card :deep(.el-card__body) {
+  padding: 20px 24px;
 }
 
 .toolbar-card {
   margin-bottom: 0;
+}
+
+.summary-card {
+  margin-bottom: 0;
+}
+
+.summary-item {
+  text-align: center;
+  padding: 16px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.summary-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.summary-label {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+
+.summary-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.summary-value.normal {
+  color: #67C23A;
+}
+
+.summary-value.warning {
+  color: #E6A23C;
+}
+
+.summary-value.info {
+  color: #409EFF;
+}
+
+.summary-value.primary {
+  color: #409EFF;
+}
+
+.summary-value.success {
+  color: #67C23A;
 }
 
 .table-card {
@@ -341,8 +774,15 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.text-right {
-  text-align: right;
+.toolbar-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: nowrap;
 }
 
 .text-gray {
@@ -352,14 +792,5 @@ onMounted(() => {
 
 .ml-2 {
   margin-left: 8px;
-}
-
-.json-example {
-  background-color: #f5f7fa;
-  padding: 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  margin: 8px 0;
-  overflow-x: auto;
 }
 </style>
