@@ -22,68 +22,46 @@ def check_integrity_consistency():
         data = request.get_json()
         start_date = data.get('startDate')
         end_date = data.get('endDate')
-        dept_name = data.get('deptName', '').strip()
-        user_name = data.get('userName', '').strip()
+        dept_name = (data.get('deptName') or '').strip() if data.get('deptName') is not None else ''
+        user_name = (data.get('userName') or '').strip() if data.get('userName') is not None else ''
         workdays = data.get('workdays', [1, 2, 3, 4, 5])
         trigger_type = data.get('triggerType', 'manual')
 
-        # 验证日期范围
-        is_valid, error_msg, days_count = calculate_date_range(start_date, end_date, max_days=90)
+        # 验证日期范围（已去除90天限制）
+        is_valid, error_msg, days_count, start, end = calculate_date_range(start_date, end_date)
         if not is_valid:
             return error_response(4001, error_msg, http_status=400)
 
-        # 获取工作日列表
-        start = datetime.strptime(start_date, '%Y-%m-%d').date()
-        end = datetime.strptime(end_date, '%Y-%m-%d').date()
+        # 如果 start 和 end 都为 None，表示全量查询，获取数据库中所有数据的日期范围
+        if start is None and end is None:
+            date_range = db.session.query(
+                func.min(WorkHourData.start_time).label('min_date'),
+                func.max(WorkHourData.end_time).label('max_date')
+            ).first()
+
+            if date_range and date_range.min_date and date_range.max_date:
+                start = date_range.min_date
+                end = date_range.max_date
+            else:
+                # 数据库中无数据
+                start = datetime.now().date()
+                end = datetime.now().date()
+
         workdays_list = get_workdays_in_range(start, end, workdays)
 
-        total_workdays = len(workdays_list)
-
-        # 1. 检测空缺：与原完整性检查逻辑相同
-        query = db.session.query(
+        # 1. 获取所有需要检查的用户列表
+        user_query = db.session.query(
             WorkHourData.user_name,
-            WorkHourData.dept_name,
-            func.count(func.distinct(WorkHourData.work_date)).label('days_count')
-        )
+            WorkHourData.dept_name
+        ).distinct()
 
         if dept_name:
-            query = query.filter(WorkHourData.dept_name.like(f'%{dept_name}%'))
+            user_query = user_query.filter(WorkHourData.dept_name.like(f'%{dept_name}%'))
 
         if user_name:
-            query = query.filter(WorkHourData.user_name.like(f'%{user_name}%'))
+            user_query = user_query.filter(WorkHourData.user_name.like(f'%{user_name}%'))
 
-        query = query.filter(
-            WorkHourData.work_date >= start,
-            WorkHourData.work_date <= end
-        ).group_by(WorkHourData.user_name, WorkHourData.dept_name)
-
-        results = query.all()
-
-        # 2. 检测重复：同一用户在同一日期有多条记录
-        duplicate_query = db.session.query(
-            WorkHourData.user_name,
-            WorkHourData.work_date,
-            func.count('*').label('count'),
-            func.group_concat(WorkHourData.serial_no).label('serial_nos')
-        ).filter(
-            WorkHourData.work_date >= start,
-            WorkHourData.work_date <= end
-        )
-
-        if dept_name:
-            duplicate_query = duplicate_query.filter(WorkHourData.dept_name.like(f'%{dept_name}%'))
-
-        if user_name:
-            duplicate_query = duplicate_query.filter(WorkHourData.user_name.like(f'%{user_name}%'))
-
-        duplicate_query = duplicate_query.group_by(
-            WorkHourData.user_name,
-            WorkHourData.work_date
-        ).having(
-            func.count('*') > 1
-        )
-
-        duplicate_records = duplicate_query.all()
+        user_list = user_query.all()
 
         # 生成问题列表
         details = []
@@ -92,92 +70,100 @@ def check_integrity_consistency():
         missing_users = []
         duplicate_users = []
 
-        # 处理空缺问题
-        for user_name, dept, days_count in results:
-            missing_days = total_workdays - days_count
+        # 2. 对每个用户进行空缺和重复检查
+        for user, dept in user_list:
+            # 查询该用户的所有工单（去重），按开始时间排序
+            user_orders_query = db.session.query(
+                WorkHourData.serial_no,
+                WorkHourData.start_time,
+                WorkHourData.end_time
+            ).filter(
+                WorkHourData.user_name == user
+            )
 
-            if missing_days > 0:
-                total_missing_days += missing_days
-                missing_users.append(user_name)
+            # 添加筛选条件
+            if dept_name:
+                user_orders_query = user_orders_query.filter(WorkHourData.dept_name.like(f'%{dept_name}%'))
 
-                # 查找缺失日期
-                user_dates = db.session.query(
-                    func.distinct(WorkHourData.work_date)
-                ).filter(
-                    WorkHourData.user_name == user_name,
-                    WorkHourData.work_date >= start,
-                    WorkHourData.work_date <= end
-                ).all()
+            # 筛选在核对时间范围内的工单（工单开始时间在范围内）
+            user_orders_query = user_orders_query.filter(
+                WorkHourData.start_time <= end,  # 工单开始时间不晚于核对结束时间
+                WorkHourData.end_time >= start   # 工单结束时间不早于核对开始时间
+            )
 
-                user_dates_set = {d[0] for d in user_dates}
-                missing_dates = [d for d in workdays_list if d not in user_dates_set]
+            user_orders = user_orders_query.distinct().order_by(WorkHourData.start_time).all()
 
-                # 找到连续缺失区间
-                if missing_dates:
-                    missing_dates.sort()
-                    gap_start = missing_dates[0]
-                    gap_end = missing_dates[0]
+            if len(user_orders) == 0:
+                continue
 
-                    for i in range(1, len(missing_dates)):
-                        if (missing_dates[i] - missing_dates[i-1]).days == 1:
-                            gap_end = missing_dates[i]
-                        else:
+            # ========== 空缺检查：检查相邻工单之间的时间空隙 ==========
+            for i in range(len(user_orders) - 1):
+                current_end = user_orders[i].end_time
+                next_start = user_orders[i + 1].start_time
+
+                # 如果前一工单结束时间 < 后一工单开始时间，存在空隙
+                if current_end < next_start:
+                    gap_start = current_end + timedelta(days=1)
+                    gap_end = next_start - timedelta(days=1)
+
+                    # 计算空隙期间的工作日天数
+                    workdays_in_gap = get_workdays_in_range(gap_start, gap_end, workdays)
+
+                    if len(workdays_in_gap) > 0:
+                        total_missing_days += len(workdays_in_gap)
+                        if user not in missing_users:
+                            missing_users.append(user)
+
+                        details.append({
+                            'deptName': dept,
+                            'userName': user,
+                            'issueType': 'missing',
+                            'serialNo': None,
+                            'gapStartDate': gap_start.strftime('%Y-%m-%d'),
+                            'gapEndDate': gap_end.strftime('%Y-%m-%d'),
+                            'affectedWorkdays': len(workdays_in_gap),
+                            'description': '未提交周报'
+                        })
+
+            # ========== 重复检查：检查工单时间范围是否有重叠 ==========
+            for i in range(len(user_orders)):
+                for j in range(i + 1, len(user_orders)):
+                    order_a = user_orders[i]
+                    order_b = user_orders[j]
+
+                    # 检查时间范围是否重叠
+                    # 重叠条件：order_a.start_time < order_b.end_time AND order_a.end_time > order_b.start_time
+                    # 注意：连续的工单（如 12-01至12-07 和 12-08至12-14）不算重叠
+                    if order_a.start_time < order_b.end_time and order_a.end_time > order_b.start_time:
+                        # 计算重叠期间
+                        overlap_start = max(order_a.start_time, order_b.start_time)
+                        overlap_end = min(order_a.end_time, order_b.end_time)
+
+                        # 计算重叠期间的工作日天数
+                        workdays_in_overlap = get_workdays_in_range(overlap_start, overlap_end, workdays)
+
+                        if len(workdays_in_overlap) > 0:
+                            total_duplicate_days += len(workdays_in_overlap)
+                            if user not in duplicate_users:
+                                duplicate_users.append(user)
+
                             details.append({
                                 'deptName': dept,
-                                'userName': user_name,
-                                'issueType': 'missing',
-                                'serialNo': None,
-                                'gapStartDate': gap_start.strftime('%Y-%m-%d'),
-                                'gapEndDate': gap_end.strftime('%Y-%m-%d'),
-                                'affectedWorkdays': (gap_end - gap_start).days + 1,
-                                'description': '未提交周报'
+                                'userName': user,
+                                'issueType': 'duplicate',
+                                'serialNo': f'{order_a.serial_no},{order_b.serial_no}',
+                                'gapStartDate': overlap_start.strftime('%Y-%m-%d'),
+                                'gapEndDate': overlap_end.strftime('%Y-%m-%d'),
+                                'affectedWorkdays': len(workdays_in_overlap),
+                                'description': f'与序号{order_b.serial_no}时间重叠'
                             })
-                            gap_start = missing_dates[i]
-                            gap_end = missing_dates[i]
-
-                    # 添加最后一个区间
-                    details.append({
-                        'deptName': dept,
-                        'userName': user_name,
-                        'issueType': 'missing',
-                        'serialNo': None,
-                        'gapStartDate': gap_start.strftime('%Y-%m-%d'),
-                        'gapEndDate': gap_end.strftime('%Y-%m-%d'),
-                        'affectedWorkdays': (gap_end - gap_start).days + 1,
-                        'description': '未提交周报'
-                    })
-
-        # 处理重复问题
-        for user_name, work_date, count, serial_nos in duplicate_records:
-            total_duplicate_days += 1
-            if user_name not in duplicate_users:
-                duplicate_users.append(user_name)
-
-            # 获取部门信息
-            dept = db.session.query(WorkHourData.dept_name).filter(
-                WorkHourData.user_name == user_name,
-                WorkHourData.work_date == work_date
-            ).first()
-
-            dept_name_val = dept[0] if dept else ''
-
-            details.append({
-                'deptName': dept_name_val,
-                'userName': user_name,
-                'issueType': 'duplicate',
-                'serialNo': serial_nos.split(',')[0] if serial_nos else None,
-                'gapStartDate': work_date.strftime('%Y-%m-%d'),
-                'gapEndDate': work_date.strftime('%Y-%m-%d'),
-                'affectedWorkdays': 1,
-                'description': f'同一日期提交了{count}条记录'
-            })
 
         # 计算完整性百分比
-        total_users = len(results)
+        total_users = len(user_list)
         integrity_users = total_users - len(missing_users)
         integrity_rate = (integrity_users / total_users * 100) if total_users > 0 else 100
 
-        # 保存检查记录
+        # 保存检查记录（包含详细列表）
         check_no = generate_batch_no('CHK')
         check_record = CheckRecord(
             check_no=check_no,
@@ -196,6 +182,7 @@ def check_integrity_consistency():
                 'totalDuplicateWorkdays': total_duplicate_days,
                 'integrityRate': f"{integrity_rate:.2f}%"
             }),
+            check_details=json.dumps(details),  # 保存完整详细列表
             check_user=request.current_user.get('userName') if hasattr(request, 'current_user') else 'system'
         )
         db.session.add(check_record)
@@ -227,17 +214,21 @@ def check_work_hours_consistency():
         data = request.get_json()
         start_date = data.get('startDate')
         end_date = data.get('endDate')
-        dept_name = data.get('deptName', '').strip()
-        user_name = data.get('userName', '').strip()
+        dept_name = (data.get('deptName') or '').strip() if data.get('deptName') is not None else ''
+        user_name = (data.get('userName') or '').strip() if data.get('userName') is not None else ''
         trigger_type = data.get('triggerType', 'manual')
 
-        # 验证日期范围
-        is_valid, error_msg, _ = calculate_date_range(start_date, end_date, max_days=90)
+        # 验证日期范围（已去除90天限制）
+        is_valid, error_msg, days_count, start, end = calculate_date_range(start_date, end_date)
         if not is_valid:
             return error_response(4001, error_msg, http_status=400)
 
-        start = datetime.strptime(start_date, '%Y-%m-%d').date()
-        end = datetime.strptime(end_date, '%Y-%m-%d').date()
+        # 如果 start 和 end 都为 None，表示全量查询
+        if start is None and end is None:
+            # 不添加时间范围过滤条件，查询所有数据
+            time_filter = False
+        else:
+            time_filter = True
 
         # 构建基础查询
         base_query = WorkHourData.query
@@ -248,10 +239,11 @@ def check_work_hours_consistency():
         if user_name:
             base_query = base_query.filter(WorkHourData.user_name.like(f'%{user_name}%'))
 
-        base_query = base_query.filter(
-            WorkHourData.start_time >= start,
-            WorkHourData.end_time <= end
-        )
+        if time_filter:
+            base_query = base_query.filter(
+                WorkHourData.start_time >= start,
+                WorkHourData.end_time <= end
+            )
 
         all_records = base_query.all()
 
@@ -267,10 +259,13 @@ def check_work_hours_consistency():
             func.sum(case((WorkHourData.work_type == 'dept_internal', WorkHourData.work_hours), else_=0)).label('dept_internal_hours'),
             func.sum(WorkHourData.work_hours).label('total_work_hours'),
             func.sum(WorkHourData.leave_hours).label('total_leave_hours')
-        ).filter(
-            WorkHourData.start_time >= start,
-            WorkHourData.end_time <= end
         )
+
+        if time_filter:
+            serial_stats = serial_stats.filter(
+                WorkHourData.start_time >= start,
+                WorkHourData.end_time <= end
+            )
 
         if dept_name:
             serial_stats = serial_stats.filter(WorkHourData.dept_name.like(f'%{dept_name}%'))
@@ -381,7 +376,7 @@ def check_work_hours_consistency():
                 'avgHours': round(total_hours / count, 2) if count > 0 else 0
             }
 
-        # 保存检查记录
+        # 保存检查记录（包含详细列表）
         check_no = generate_batch_no('CHK')
         check_record = CheckRecord(
             check_no=check_no,
@@ -399,6 +394,7 @@ def check_work_hours_consistency():
                 'excessSerials': excess_serials,
                 'complianceRate': f"{compliance_rate:.2f}%"
             }),
+            check_details=json.dumps(details),  # 保存完整详细列表
             check_user=request.current_user.get('userName') if hasattr(request, 'current_user') else 'system'
         )
         db.session.add(check_record)
@@ -481,11 +477,14 @@ def get_check_detail(check_no):
             except:
                 data['checkResult'] = None
 
+        # 读取详细列表数据
         if record.check_details:
             try:
-                data['details'] = json.loads(record.check_details)
+                data['list'] = json.loads(record.check_details)
             except:
-                data['details'] = []
+                data['list'] = []
+        else:
+            data['list'] = []
 
         return success_response(data=data)
 

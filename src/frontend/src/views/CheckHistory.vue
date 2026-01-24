@@ -46,7 +46,7 @@
         height="calc(100vh - 340px)"
       >
         <el-table-column prop="checkNo" label="核对批次号" width="200" fixed />
-        <el-table-column label="核对类型" width="200" align="center">
+        <el-table-column label="核对类型" width="150" align="center">
           <template #default="{ row }">
             <el-tag :type="getCheckTypeTag(row.checkType)" size="small">
               {{ getCheckTypeLabel(row.checkType) }}
@@ -65,8 +65,12 @@
         <el-table-column prop="deptName" label="部门" width="150" show-overflow-tooltip />
         <el-table-column prop="userName" label="人员" width="100" />
         <el-table-column prop="checkUser" label="执行人" width="100" />
-        <el-table-column prop="checkTime" label="核对时间" width="160" sortable class-name="sortable-column" />
-        <el-table-column label="核对结果摘要" min-width="250" show-overflow-tooltip>
+        <el-table-column prop="checkTime" label="核对时间" width="180" sortable class-name="sortable-column">
+          <template #default="{ row }">
+            {{ formatCheckTime(row.checkTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="核对结果摘要" min-width="300" show-overflow-tooltip>
           <template #default="{ row }">
             <div v-if="row.checkResult">
               <div v-if="row.checkType === 'integrity-consistency' || row.checkType === 'integrity'">
@@ -104,166 +108,18 @@
         />
       </div>
     </el-card>
-
-    <!-- 详情对话框 -->
-    <el-dialog
-      v-model="detailDialogVisible"
-      :title="`核对详情 - ${currentRecord?.checkNo}`"
-      width="900px"
-      :close-on-click-modal="false"
-    >
-      <el-descriptions v-if="currentRecord" :column="2" border>
-        <el-descriptions-item label="核对批次号" :span="2">{{ currentRecord.checkNo }}</el-descriptions-item>
-        <el-descriptions-item label="核对类型">
-          <el-tag :type="getCheckTypeTag(currentRecord.checkType)" size="small">
-            {{ getCheckTypeLabel(currentRecord.checkType) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="触发方式">
-          <el-tag :type="getTriggerTypeTag(currentRecord.triggerType)" size="small">
-            {{ getTriggerTypeLabel(currentRecord.triggerType) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="执行人">{{ currentRecord.checkUser }}</el-descriptions-item>
-        <el-descriptions-item label="核对时间范围">
-          {{ currentRecord.startDate }} 至 {{ currentRecord.endDate }}
-        </el-descriptions-item>
-        <el-descriptions-item label="执行时间">{{ currentRecord.checkTime }}</el-descriptions-item>
-        <el-descriptions-item v-if="currentRecord.deptName" label="部门">{{ currentRecord.deptName }}</el-descriptions-item>
-        <el-descriptions-item v-if="currentRecord.userName" label="人员">{{ currentRecord.userName }}</el-descriptions-item>
-      </el-descriptions>
-
-      <div v-if="currentDetail && currentDetail.checkResult" style="margin-top: 20px">
-        <el-divider>核对结果汇总</el-divider>
-        <el-row v-if="currentRecord.checkType === 'integrity-consistency' || currentRecord.checkType === 'integrity'" :gutter="20">
-          <el-col :span="4">
-            <div class="summary-item">
-              <div class="summary-label">核对总人数</div>
-              <div class="summary-value">{{ currentDetail.checkResult.totalUsers }}</div>
-            </div>
-          </el-col>
-          <el-col :span="5">
-            <div class="summary-item">
-              <div class="summary-label">存在空缺人数</div>
-              <div class="summary-value warning">{{ currentDetail.checkResult.missingUsers }}</div>
-            </div>
-          </el-col>
-          <el-col :span="5">
-            <div class="summary-item">
-              <div class="summary-label">总空缺工作日天数</div>
-              <div class="summary-value danger">{{ currentDetail.checkResult.totalMissingWorkdays || currentDetail.checkResult.totalMissingDays }}</div>
-            </div>
-          </el-col>
-          <el-col :span="5">
-            <div class="summary-item">
-              <div class="summary-label">存在重复人数</div>
-              <div class="summary-value info">{{ currentDetail.checkResult.duplicateUsers || 0 }}</div>
-            </div>
-          </el-col>
-          <el-col :span="5">
-            <div class="summary-item">
-              <div class="summary-label">总重复工作日天数</div>
-              <div class="summary-value info">{{ currentDetail.checkResult.totalDuplicateWorkdays || 0 }}</div>
-            </div>
-          </el-col>
-        </el-row>
-        <el-row v-else :gutter="20">
-          <el-col :span="6">
-            <div class="summary-item">
-              <div class="summary-label">核对总工单数</div>
-              <div class="summary-value">{{ currentDetail.checkResult.totalSerials }}</div>
-            </div>
-          </el-col>
-          <el-col :span="6">
-            <div class="summary-item">
-              <div class="summary-label">正常工单数</div>
-              <div class="summary-value normal">{{ currentDetail.checkResult.normalSerials }}</div>
-            </div>
-          </el-col>
-          <el-col :span="6">
-            <div class="summary-item">
-              <div class="summary-label">偏低工单数</div>
-              <div class="summary-value warning">{{ currentDetail.checkResult.shortSerials }}</div>
-            </div>
-          </el-col>
-          <el-col :span="6">
-            <div class="summary-item">
-              <div class="summary-label">偏高工单数</div>
-              <div class="summary-value danger">{{ currentDetail.checkResult.excessSerials }}</div>
-            </div>
-          </el-col>
-        </el-row>
-      </div>
-
-      <div v-if="currentDetail && currentDetail.list && currentDetail.list.length > 0" style="margin-top: 20px">
-        <el-divider>{{ currentRecord.checkType === 'integrity-consistency' ? '问题记录' : '异常记录' }}</el-divider>
-        <el-table :data="currentDetail.list" border stripe max-height="400">
-          <el-table-column type="index" label="序号" width="60" />
-          <el-table-column prop="deptName" label="部门" width="120" />
-          <el-table-column prop="userName" label="姓名" width="100" />
-
-          <!-- 周报提交检查列 -->
-          <template v-if="currentRecord.checkType === 'integrity-consistency'">
-            <el-table-column prop="issueType" label="问题类型" width="100" align="center">
-              <template #default="{ row }">
-                <el-tag :type="row.issueType === 'missing' ? 'danger' : 'warning'" size="small">
-                  {{ row.issueType === 'missing' ? '空缺' : '重复' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="gapStartDate" label="开始日期" width="120" />
-            <el-table-column prop="gapEndDate" label="结束日期" width="120" />
-            <el-table-column prop="affectedWorkdays" label="影响工作日天数" width="140" align="center" />
-            <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
-          </template>
-
-          <!-- 工作时长检查列 -->
-          <template v-else>
-            <el-table-column prop="serialNo" label="工单序号" width="100" />
-            <el-table-column prop="startTime" label="开始时间" width="120" />
-            <el-table-column prop="endTime" label="结束时间" width="120" />
-            <el-table-column prop="totalWorkHours" label="工作时长总和(h)" width="140" align="right" />
-            <el-table-column prop="expectedWorkHours" label="应工作时長(h)" width="120" align="right" />
-            <el-table-column prop="legalWorkHours" label="法定工作时间(h)" width="140" align="right" />
-            <el-table-column prop="difference" label="差值(h)" width="100" align="right">
-              <template #default="{ row }">
-                <span :class="{
-                  'text-success': row.difference === 0,
-                  'text-warning': row.difference < 0,
-                  'text-danger': row.difference > 0
-                }">
-                  {{ row.difference > 0 ? '+' : '' }}{{ row.difference }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="100" align="center">
-              <template #default="{ row }">
-                <el-tag :type="row.status === 'normal' ? 'success' : row.status === 'short' ? 'warning' : 'danger'" size="small">
-                  {{ row.status === 'normal' ? '正常' : row.status === 'short' ? '偏低' : '偏高' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-          </template>
-        </el-table>
-      </div>
-
-      <template #footer>
-        <el-button @click="detailDialogVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getCheckHistory, getCheckDetail } from '@/api'
+import { getCheckHistory } from '@/api'
 
+const router = useRouter()
 const loading = ref(false)
 const tableData = ref([])
-const detailDialogVisible = ref(false)
-const currentRecord = ref(null)
-const currentDetail = ref(null)
 
 const filterForm = reactive({
   checkType: '',
@@ -320,15 +176,11 @@ const handlePageChange = () => {
   loadData()
 }
 
-const handleViewDetail = async (row) => {
-  currentRecord.value = row
-  try {
-    const res = await getCheckDetail(row.checkNo)
-    currentDetail.value = res.data
-  } catch (error) {
-    console.error('获取详情失败:', error)
-  }
-  detailDialogVisible.value = true
+const handleViewDetail = (row) => {
+  router.push({
+    name: 'CheckDetail',
+    params: { checkNo: row.checkNo }
+  })
 }
 
 const getCheckTypeLabel = (type) => {
@@ -367,6 +219,12 @@ const getTriggerTypeTag = (type) => {
     'import': 'warning'
   }
   return map[type] || 'info'
+}
+
+const formatCheckTime = (timeStr) => {
+  if (!timeStr) return ''
+  // 将 ISO 格式转换为 yyyy-MM-dd HH:mm:ss
+  return timeStr.replace('T', ' ').substring(0, 19)
 }
 
 onMounted(() => {

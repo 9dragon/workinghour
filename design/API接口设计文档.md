@@ -863,13 +863,13 @@ Content-Type: application/json
 
 |参数名|类型|必填|默认值|说明|
 |---|---|---|---|---|
-|startDate|string|是|-|核对开始日期，格式：YYYY-MM-DD|
-|endDate|string|是|-|核对结束日期，格式：YYYY-MM-DD|
+|startDate|string|否|null|核对开始日期，格式：YYYY-MM-DD，不传则查询所有数据|
+|endDate|string|否|null|核对结束日期，格式：YYYY-MM-DD，不传则查询所有数据|
 |deptName|string|否|null|部门名称，不传则核对所有部门|
 |userName|string|否|null|人员姓名，不传则核对部门内所有人员|
 
 **业务规则：**
-- 无时间范围限制（不限制3个月）
+- 无时间范围限制（支持全量查询）
 - 自动排除周末和法定节假日
 - 检查时间空缺（漏报）和时间重复（重复提交）
 - 按工作日天数计算影响天数
@@ -949,13 +949,13 @@ Content-Type: application/json
 
 |参数名|类型|必填|默认值|说明|
 |---|---|---|---|---|
-|startDate|string|是|-|核对开始日期，格式：YYYY-MM-DD|
-|endDate|string|是|-|核对结束日期，格式：YYYY-MM-DD|
+|startDate|string|否|null|核对开始日期，格式：YYYY-MM-DD，不传则查询所有数据|
+|endDate|string|否|null|核对结束日期，格式：YYYY-MM-DD，不传则查询所有数据|
 |deptName|string|否|null|部门名称，不传则核对所有部门|
 |userName|string|否|null|人员姓名，不传则核对部门内所有人员|
 
 **业务规则：**
-- 无时间范围限制（不限制3个月）
+- 无时间范围限制（支持全量查询）
 - 按序号（serial_no）聚合工作时长，分别统计4种工时类型
 - 加班时长不计入工作时长总和
 - 请假时长用于扣减法定工作时间
@@ -2129,7 +2129,7 @@ X-API-Sunset: 2026-12-31
 |文件上传|≤30s|1000行数据导入|
 |列表查询|≤3s|单条件查询|
 |列表查询|≤5s|多条件组合查询|
-|工时核对|≤10s|100人、90天范围|
+|工时核对|≤10s|100人、全量数据|
 
 ### 16.2 优化措施
 

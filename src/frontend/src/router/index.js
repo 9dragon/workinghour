@@ -63,6 +63,12 @@ const routes = [
         meta: { title: '核对历史' }
       },
       {
+        path: 'check/detail/:checkNo',
+        name: 'CheckDetail',
+        component: () => import('@/views/CheckDetail.vue'),
+        meta: { title: '核对详情' }
+      },
+      {
         path: 'check/holidays',
         name: 'HolidayManagement',
         component: () => import('@/views/HolidayManagement.vue'),

@@ -74,11 +74,10 @@ def read_excel_data(file_path):
             df.columns = [str(col).strip() for col in df.columns]
 
             # 处理合并单元格导致的空值：使用前向填充
-            for col in df.columns:
-                if '部门' in col or col == '部门':
-                    # 先将空字符串替换为NaN，然后进行前向填充
-                    df[col] = df[col].replace('', pd.NA)
-                    df[col] = df[col].fillna(method='ffill')
+            # 只处理部门字段本身（不处理工作时长等数据列）
+            if '部门' in df.columns:
+                df['部门'] = df['部门'].replace('', pd.NA)
+                df['部门'] = df['部门'].fillna(method='ffill')
 
             return df
 
@@ -108,12 +107,10 @@ def read_excel_data(file_path):
             df = pd.DataFrame(data, columns=headers)
 
             # 处理合并单元格导致的空值：使用前向填充
-            # 主要处理部门字段等可能合并的列
-            for col in df.columns:
-                if '部门' in col or col == '部门':
-                    # 先将空字符串替换为NaN，然后进行前向填充
-                    df[col] = df[col].replace('', pd.NA)
-                    df[col] = df[col].fillna(method='ffill')
+            # 只处理部门字段本身（不处理工作时长等数据列）
+            if '部门' in df.columns:
+                df['部门'] = df['部门'].replace('', pd.NA)
+                df['部门'] = df['部门'].fillna(method='ffill')
 
             return df
 
@@ -122,11 +119,10 @@ def read_excel_data(file_path):
         df.columns = [str(col).strip() for col in df.columns]
 
         # 处理合并单元格导致的空值：使用前向填充
-        for col in df.columns:
-            if '部门' in col or col == '部门':
-                # 先将空字符串替换为NaN，然后进行前向填充
-                df[col] = df[col].replace('', pd.NA)
-                df[col] = df[col].fillna(method='ffill')
+        # 只处理部门字段本身（不处理工作时长等数据列）
+        if '部门' in df.columns:
+            df['部门'] = df['部门'].replace('', pd.NA)
+            df['部门'] = df['部门'].fillna(method='ffill')
 
         return df
 
@@ -194,26 +190,34 @@ def validate_work_hour_row(row, required_fields):
         return False, errors
     return True, []
 
-def calculate_date_range(start_date, end_date, max_days=90):
+def calculate_date_range(start_date, end_date):
     """
-    计算日期范围，验证不超过max_days天
+    计算日期范围（已去除天数限制）
 
-    返回: (is_valid, error_message, days_count)
+    参数:
+        start_date: 开始日期字符串 (YYYY-MM-DD) 或 None
+        end_date: 结束日期字符串 (YYYY-MM-DD) 或 None
+
+    返回: (is_valid, error_message, days_count, start, end)
+        - 当 start_date 和 end_date 都为 None 时，返回 (True, None, 0, None, None) 表示全量查询
+        - 当提供日期时，返回验证结果和解析后的日期对象
     """
+    # 如果都为 None，表示全量查询
+    if start_date is None and end_date is None:
+        return True, None, 0, None, None
+
     try:
         start = datetime.strptime(start_date, '%Y-%m-%d').date()
         end = datetime.strptime(end_date, '%Y-%m-%d').date()
 
         if start > end:
-            return False, "开始日期不能晚于结束日期", 0
+            return False, "开始日期不能晚于结束日期", 0, None, None
 
         days_count = (end - start).days
-        if days_count > max_days:
-            return False, f"时间范围不能超过{max_days}天", days_count
-
-        return True, None, days_count
+        # 已去除天数限制
+        return True, None, days_count, start, end
     except ValueError as e:
-        return False, "日期格式错误，应为YYYY-MM-DD", 0
+        return False, "日期格式错误，应为YYYY-MM-DD", 0, None, None
 
 def get_workdays_in_range(start_date, end_date, workdays, holidays=None):
     """

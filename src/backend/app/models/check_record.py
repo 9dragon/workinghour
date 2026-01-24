@@ -11,12 +11,13 @@ class CheckRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     check_no = db.Column(db.String(50), unique=True, nullable=False, index=True)
     check_type = db.Column(db.String(20), nullable=False, index=True)  # integrity/compliance
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=False)
+    start_date = db.Column(db.Date, nullable=True)  # 允许为NULL以支持全量查询
+    end_date = db.Column(db.Date, nullable=True)  # 允许为NULL以支持全量查询
     dept_name = db.Column(db.String(50), index=True)
     user_name = db.Column(db.String(50), index=True)
     check_config = db.Column(db.Text, nullable=False)  # JSON格式配置
     check_result = db.Column(db.Text, nullable=False)  # JSON格式结果
+    check_details = db.Column(db.Text, nullable=True)  # JSON格式详细列表（可选）
     trigger_type = db.Column(db.String(20), nullable=False, default='manual')  # manual/scheduled/import
     check_user = db.Column(db.String(50), nullable=False)
     check_time = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
