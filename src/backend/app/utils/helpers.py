@@ -73,11 +73,9 @@ def read_excel_data(file_path):
             df = pd.read_excel(file_path, header=0)
             df.columns = [str(col).strip() for col in df.columns]
 
-            # 处理合并单元格导致的空值：使用前向填充
-            # 只处理部门字段本身（不处理工作时长等数据列）
+            # 将空字符串转换为 pd.NA，便于后续验证处理
             if '部门' in df.columns:
                 df['部门'] = df['部门'].replace('', pd.NA)
-                df['部门'] = df['部门'].fillna(method='ffill')
 
             return df
 
@@ -106,11 +104,9 @@ def read_excel_data(file_path):
             # 创建DataFrame
             df = pd.DataFrame(data, columns=headers)
 
-            # 处理合并单元格导致的空值：使用前向填充
-            # 只处理部门字段本身（不处理工作时长等数据列）
+            # 将空字符串转换为 pd.NA，便于后续验证处理
             if '部门' in df.columns:
                 df['部门'] = df['部门'].replace('', pd.NA)
-                df['部门'] = df['部门'].fillna(method='ffill')
 
             return df
 
@@ -118,11 +114,9 @@ def read_excel_data(file_path):
         df = pd.read_excel(file_path, header=0)
         df.columns = [str(col).strip() for col in df.columns]
 
-        # 处理合并单元格导致的空值：使用前向填充
-        # 只处理部门字段本身（不处理工作时长等数据列）
+        # 将空字符串转换为 pd.NA，便于后续验证处理
         if '部门' in df.columns:
             df['部门'] = df['部门'].replace('', pd.NA)
-            df['部门'] = df['部门'].fillna(method='ffill')
 
         return df
 

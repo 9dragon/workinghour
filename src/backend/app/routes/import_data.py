@@ -7,6 +7,7 @@ from app.models.db import db
 from app.models.work_hour_data import WorkHourData
 from app.models.import_record import ImportRecord
 from app.models.sys_config import SysConfig
+from app.models.employee import Employee
 from app.utils.response import success_response, error_response
 from app.utils.jwt_utils import auth_required
 from app.utils.helpers import (
@@ -29,7 +30,7 @@ def allowed_file(filename):
 
 
 def split_work_types(row, serial_no, user_name, start_time, end_time,
-                     batch_no, approval_result, approval_status):
+                     batch_no, approval_result, approval_status, serial_final_dept=None):
     """
     将一行Excel数据拆分为多条工时记录
 
@@ -42,6 +43,7 @@ def split_work_types(row, serial_no, user_name, start_time, end_time,
         batch_no: 导入批次号
         approval_result: 审批结果
         approval_status: 审批状态
+        serial_final_dept: 序号->部门映射（已验证一致性）
 
     返回: (records_list, created_count)
         records_list: 创建的记录列表
@@ -49,8 +51,12 @@ def split_work_types(row, serial_no, user_name, start_time, end_time,
     """
     records = []
 
-    # 获取部门信息（所有记录共用）
-    dept_name = str(row.get('部门', '')).strip() if pd.notna(row.get('部门')) else ''
+    # 获取部门信息（优先使用验证后的部门映射）
+    if serial_final_dept and serial_no in serial_final_dept:
+        dept_name = serial_final_dept[serial_no]
+    else:
+        # 兼容旧逻辑：从当前行获取部门
+        dept_name = str(row.get('部门', '')).strip() if pd.notna(row.get('部门')) else ''
 
     # 定义4种工时类型的字段映射
     work_types = [
@@ -222,6 +228,107 @@ def upload_file():
             os.remove(upload_path)
             return error_response(2003, 'Excel文件解析失败', http_status=400)
 
+        # 1. 构建序号->部门的映射，并验证部门一致性
+        serial_dept_map = {}  # 序号 -> 部门值列表
+        serial_dept_rows = {}  # 序号 -> 行号列表（用于报错）
+        serial_user_map = {}  # 序号 -> 用户名
+
+        for idx, row in df.iterrows():
+            row_num = idx + 2
+            serial_val = row.get('序号')
+            if pd.isna(serial_val):
+                continue
+
+            serial_no = str(serial_val).strip()
+            # 使用"创建人部门"字段（列45）作为部门数据来源
+            creator_dept_val = row.get('创建人部门')
+            dept_name = str(creator_dept_val).strip() if pd.notna(creator_dept_val) else None
+            user_val = row.get('姓名')
+            user_name = str(user_val).strip() if pd.notna(user_val) else ''
+
+            if serial_no not in serial_dept_map:
+                serial_dept_map[serial_no] = []
+                serial_dept_rows[serial_no] = []
+                serial_user_map[serial_no] = user_name
+
+            serial_dept_map[serial_no].append(dept_name)
+            serial_dept_rows[serial_no].append(row_num)
+
+        # 2. 验证部门一致性并确定最终部门值
+        serial_final_dept = {}  # 序号 -> 最终部门值
+        dept_errors = []
+
+        # 第一遍：检查 Excel 数据一致性并收集需要从数据库查询的序号
+        empty_dept_serials = []  # 需要从数据库查询部门的序号列表
+
+        for serial_no, dept_list in serial_dept_map.items():
+            # 获取所有非空部门值
+            non_empty_depts = [d for d in dept_list if d is not None and d != '']
+            user_name = serial_user_map.get(serial_no, '')
+
+            if len(set(non_empty_depts)) > 1:
+                # "创建人部门"值不一致 - 这是硬错误，无法通过数据库查询解决
+                dept_errors.append({
+                    'serial_no': serial_no,
+                    'user_name': user_name,
+                    'rows': serial_dept_rows[serial_no],
+                    'error': f'该序号的"创建人部门"字段不一致，存在多个值：{", ".join(set(non_empty_depts))}'
+                })
+            elif non_empty_depts:
+                # Excel中有有效的部门值
+                serial_final_dept[serial_no] = non_empty_depts[0]
+            else:
+                # Excel中"创建人部门"为空，需要从数据库查询
+                empty_dept_serials.append(serial_no)
+
+        # 第二遍：批量查询 employees 表进行补充
+        if empty_dept_serials:
+            # 提取需要查询的唯一用户名列表
+            unique_user_names = list(set([
+                serial_user_map.get(s, '') for s in empty_dept_serials
+            ]))
+
+            # 批量查询 employees 表（单次查询，避免 N+1 问题）
+            employees = Employee.query.filter(
+                Employee.employee_name.in_(unique_user_names)
+            ).all()
+
+            # 构建 user_name -> dept_name 映射
+            user_dept_map = {emp.employee_name: emp.dept_name for emp in employees}
+
+            # 为每个空部门的序号分配从数据库查到的部门
+            for serial_no in empty_dept_serials:
+                user_name = serial_user_map.get(serial_no, '')
+
+                if user_name in user_dept_map:
+                    # 从 employees 表查到部门信息，自动补充
+                    serial_final_dept[serial_no] = user_dept_map[user_name]
+                else:
+                    # employees 表中也没有该用户 - 报错
+                    dept_errors.append({
+                        'serial_no': serial_no,
+                        'user_name': user_name,
+                        'rows': serial_dept_rows[serial_no],
+                        'error': f'该序号的"创建人部门"字段为空，且系统中未找到员工"{user_name}"的部门信息，请前往"系统设置-员工管理"配置该员工的部门'
+                    })
+
+        # 3. 如果有部门错误，返回错误信息
+        if dept_errors:
+            os.remove(upload_path)
+            error_details = []
+            for err in dept_errors[:10]:  # 最多显示10个错误
+                error_details.append({
+                    'serialNo': err['serial_no'],
+                    'userName': err['user_name'],
+                    'rows': err['rows'],
+                    'error': err['error']
+                })
+
+            return error_response(2003, f'部门字段验证失败，发现{len(dept_errors)}个序号的部门数据存在问题', {
+                'validationErrors': error_details,
+                'totalErrors': len(dept_errors)
+            }, http_status=400)
+
         # 生成批次号
         batch_no = generate_batch_no('IMP')
 
@@ -288,7 +395,8 @@ def upload_file():
             # 拆分数据为多条记录（按工时类型）
             records, created_count = split_work_types(
                 row, serial_no, user_name, start_time, end_time,
-                batch_no, approval_result, approval_status
+                batch_no, approval_result, approval_status,
+                serial_final_dept  # 传递已验证的部门映射
             )
 
             # 验证至少有一种工时类型

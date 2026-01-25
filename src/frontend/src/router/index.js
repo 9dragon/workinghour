@@ -33,6 +33,12 @@ const routes = [
         meta: { title: '导入数据查看' }
       },
       {
+        path: 'data/employee-management',
+        name: 'EmployeeManagement',
+        component: () => import('@/views/EmployeeManagement.vue'),
+        meta: { title: '员工管理' }
+      },
+      {
         path: 'query/project',
         name: 'ProjectQuery',
         component: () => import('@/views/ProjectQuery.vue'),
@@ -73,6 +79,16 @@ const routes = [
         name: 'HolidayManagement',
         component: () => import('@/views/HolidayManagement.vue'),
         meta: { title: '节假日管理' }
+      },
+      {
+        path: 'system/user-management',
+        name: 'UserManagement',
+        component: () => import('@/views/SystemUserManagement.vue'),
+        meta: { title: '用户管理' }
+      },
+      {
+        path: 'user-management',
+        redirect: '/data/employee-management'
       },
       {
         path: 'settings',

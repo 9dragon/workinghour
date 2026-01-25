@@ -14,21 +14,6 @@
         text-color="#bfcbd9"
         active-text-color="#409EFF"
       >
-        <el-sub-menu index="data">
-          <template #title>
-            <el-icon><Folder /></el-icon>
-            <span>数据管理</span>
-          </template>
-          <el-menu-item index="/data/import">
-            <el-icon><Upload /></el-icon>
-            <span>Excel数据导入</span>
-          </el-menu-item>
-          <el-menu-item index="/data/records">
-            <el-icon><List /></el-icon>
-            <span>导入记录查看</span>
-          </el-menu-item>
-        </el-sub-menu>
-
         <el-sub-menu index="query">
           <template #title>
             <el-icon><Search /></el-icon>
@@ -67,10 +52,39 @@
           </el-menu-item>
         </el-sub-menu>
 
-        <el-menu-item index="/settings">
-          <el-icon><Setting /></el-icon>
-          <span>系统设置</span>
-        </el-menu-item>
+        <el-sub-menu index="data">
+          <template #title>
+            <el-icon><Folder /></el-icon>
+            <span>数据管理</span>
+          </template>
+          <el-menu-item index="/data/import">
+            <el-icon><Upload /></el-icon>
+            <span>Excel数据导入</span>
+          </el-menu-item>
+          <el-menu-item index="/data/records">
+            <el-icon><List /></el-icon>
+            <span>导入记录查看</span>
+          </el-menu-item>
+          <el-menu-item index="/data/employee-management">
+            <el-icon><UserFilled /></el-icon>
+            <span>员工管理</span>
+          </el-menu-item>
+        </el-sub-menu>
+
+        <el-sub-menu index="system">
+          <template #title>
+            <el-icon><Tools /></el-icon>
+            <span>系统管理</span>
+          </template>
+          <el-menu-item index="/system/user-management">
+            <el-icon><User /></el-icon>
+            <span>用户管理</span>
+          </el-menu-item>
+          <el-menu-item index="/settings">
+            <el-icon><Setting /></el-icon>
+            <span>系统设置</span>
+          </el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
 

@@ -58,7 +58,6 @@ def login():
         # 生成令牌
         user_info = {
             'userName': user.user_name,
-            'realName': user.real_name,
             'role': user.role
         }
         token = generate_token(user_info)
@@ -88,7 +87,6 @@ def get_user_info():
         user_info = request.current_user
         return success_response(data={
             'userName': user_info.get('userName'),
-            'realName': user_info.get('realName'),
             'role': user_info.get('role')
         })
     except Exception as e:

@@ -33,6 +33,8 @@ def create_app(config_class=Config):
     from .routes.check import check_bp
     from .routes.system import system_bp
     from .routes.holidays import holidays_bp
+    from .routes.user_management import user_mgmt_bp
+    from .routes.employee_management import employee_mgmt_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(data_bp, url_prefix='/api/v1')
@@ -41,6 +43,8 @@ def create_app(config_class=Config):
     app.register_blueprint(check_bp, url_prefix='/api/v1')
     app.register_blueprint(system_bp, url_prefix='/api/v1')
     app.register_blueprint(holidays_bp, url_prefix='/api/v1')
+    app.register_blueprint(user_mgmt_bp, url_prefix='/api/v1')
+    app.register_blueprint(employee_mgmt_bp, url_prefix='/api/v1')
 
     # 创建数据库表
     with app.app_context():
@@ -59,7 +63,6 @@ def _init_default_data():
     if not admin:
         admin = User(
             user_name='admin',
-            real_name='系统管理员',
             role='admin'
         )
         admin.set_password('admin123')
@@ -70,7 +73,6 @@ def _init_default_data():
     if not test_user:
         test_user = User(
             user_name='test',
-            real_name='测试用户',
             role='user'
         )
         test_user.set_password('test123')

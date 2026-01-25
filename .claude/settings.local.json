@@ -36,7 +36,12 @@
       "Bash(netstat:*)",
       "Bash(timeout:*)",
       "Bash(ls:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(if exist:*)",
+      "Bash(git -C \"d:\\\\projects\\\\workinghour\" log:*)",
+      "Bash(git -C \"d:\\\\projects\\\\workinghour\" diff:*)",
+      "Bash(move:*)",
+      "Bash(ping:*)"
     ]
   }
 }

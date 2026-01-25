@@ -961,3 +961,89 @@ export const getHolidaySummary = (params) => {
   }
   return request.get('/holidays/summary', { params })
 }
+
+// ==================== 员工管理相关接口 ====================
+
+// 获取员工列表
+export const getEmployees = (params) => {
+  if (MOCK_MODE) {
+    const mockEmployees = [
+      { id: 1, employeeName: '张三', deptName: '研发部', createdAt: '2026-01-02T10:00:00+08:00' },
+      { id: 2, employeeName: '李四', deptName: '产品部', createdAt: '2026-01-03T10:00:00+08:00' },
+      { id: 3, employeeName: '王五', deptName: '设计部', createdAt: '2026-01-04T10:00:00+08:00' },
+      { id: 4, employeeName: '赵六', deptName: '运营部', createdAt: '2026-01-05T10:00:00+08:00' }
+    ]
+    const { page = 1, size = 20, keyword = '' } = params || {}
+
+    let filteredList = mockEmployees
+    if (keyword) {
+      filteredList = mockEmployees.filter(e =>
+        e.employeeName.includes(keyword) || (e.deptName && e.deptName.includes(keyword))
+      )
+    }
+
+    const total = filteredList.length
+    const startIndex = (page - 1) * size
+    const endIndex = startIndex + size
+    const pagedList = filteredList.slice(startIndex, endIndex)
+
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: {
+        list: pagedList,
+        total: total,
+        page: page,
+        size: size
+      }
+    })
+  }
+  return request.get('/employees', { params })
+}
+
+// 创建员工
+export const createEmployee = (data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '创建成功',
+      data: {
+        id: Date.now(),
+        employeeName: data.employeeName,
+        deptName: data.deptName,
+        createdAt: new Date().toISOString()
+      }
+    })
+  }
+  return request.post('/employees', data)
+}
+
+// 更新员工
+export const updateEmployee = (id, data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '更新成功',
+      data: {
+        id: id,
+        employeeName: data.employeeName,
+        deptName: data.deptName,
+        updatedAt: new Date().toISOString()
+      }
+    })
+  }
+  return request.put(`/employees/${id}`, data)
+}
+
+// 删除员工
+export const deleteEmployee = (id) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '删除成功',
+      data: null
+    })
+  }
+  return request.delete(`/employees/${id}`)
+}
+

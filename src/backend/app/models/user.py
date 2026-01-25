@@ -12,8 +12,6 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_name = db.Column(db.String(50), unique=True, nullable=False, index=True)
     password = db.Column(db.String(255), nullable=False)  # bcrypt加密后的密码
-    real_name = db.Column(db.String(50))
-    dept_name = db.Column(db.String(50))
     role = db.Column(db.String(20), nullable=False, default='user')  # admin/user
     email = db.Column(db.String(100))
     status = db.Column(db.String(20), nullable=False, default='active', index=True)  # active/locked
@@ -58,8 +56,6 @@ class User(db.Model):
         return {
             'id': self.id,
             'userName': self.user_name,
-            'realName': self.real_name,
-            'deptName': self.dept_name,
             'role': self.role,
             'email': self.email,
             'status': self.status,
