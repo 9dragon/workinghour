@@ -42,6 +42,8 @@
       "Bash(git -C \"d:\\\\projects\\\\workinghour\" diff:*)",
       "Bash(move:*)",
       "Bash(ping:*)"
+      "Bash(pwsh:*)",
+      "Bash(powershell:*)"
     ]
   }
 }

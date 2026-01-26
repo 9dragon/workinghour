@@ -4,7 +4,7 @@ services:
   # 后端服务
   backend:
     build:
-      context: ./src/backend
+      context: ../src/backend
       dockerfile: Dockerfile
     container_name: workinghour-backend
     restart: unless-stopped
@@ -18,7 +18,7 @@ services:
     volumes:
       - backend-data:/app/instance
       - backend-uploads:/app/uploads
-      - ./src/backend:/app
+      - ../src/backend:/app
     ports:
       - "8000:8000"
     networks:
@@ -33,7 +33,7 @@ services:
   # 前端服务
   frontend:
     build:
-      context: ./src/frontend
+      context: ../src/frontend
       dockerfile: Dockerfile
     container_name: workinghour-frontend
     restart: unless-stopped

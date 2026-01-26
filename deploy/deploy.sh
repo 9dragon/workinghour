@@ -43,9 +43,9 @@ check_docker() {
 
 # 检查环境变量文件
 check_env() {
-    if [ ! -f .env ]; then
+    if [ ! -f ../.env ]; then
         log_warn ".env 文件不存在，从 .env.example 复制"
-        cp .env.example .env
+        cp ../.env.example ../.env
         log_warn "请编辑 .env 文件，设置正确的配置后重新运行"
         exit 1
     fi
@@ -162,9 +162,9 @@ update() {
     log_info "更新服务..."
 
     # 拉取最新代码
-    if [ -d .git ]; then
+    if [ -d ../.git ]; then
         log_info "拉取最新代码..."
-        git pull
+        (cd .. && git pull)
     fi
 
     # 重新构建并启动
@@ -178,15 +178,15 @@ backup() {
     log_info "备份数据库..."
 
     # 创建备份目录
-    mkdir -p backups
+    mkdir -p ../backups
 
     # 备份文件名
     backup_file="workinghour_$(date +%Y%m%d_%H%M%S).db"
 
     # 从容器复制数据库
     if docker_compose exec -T backend cp /app/instance/workinghour.db "/app/backups/$backup_file" 2>/dev/null; then
-        docker cp "workinghour-backend:/app/backups/$backup_file" "backups/$backup_file"
-        log_info "数据库已备份到: backups/$backup_file"
+        docker cp "workinghour-backend:/app/backups/$backup_file" "../backups/$backup_file"
+        log_info "数据库已备份到: ../backups/$backup_file"
     else
         log_error "数据库备份失败"
     fi
