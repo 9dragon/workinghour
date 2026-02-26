@@ -268,20 +268,18 @@ const handleResetConfig = () => {
 
 const loadConfig = async () => {
   try {
-    // 加载 system 分类的配置
-    const resSystem = await getSystemConfig({ category: 'system' })
-    const systemConfigs = resSystem.data.system || []
-    systemConfigs.forEach(config => {
+    // 一次请求获取所有配置
+    const res = await getSystemConfig()
+    const allConfigs = [
+      ...(res.data.system || []),
+      ...(res.data.import || []),
+      ...(res.data.check || [])
+    ]
+
+    allConfigs.forEach(config => {
       if (config.configKey === 'system.file_retention_days') {
         systemConfig.fileRetentionDays = Number(config.configValue)
-      }
-    })
-
-    // 加载 import 分类的配置
-    const resImport = await getSystemConfig({ category: 'import' })
-    const importConfigs = resImport.data.import || []
-    importConfigs.forEach(config => {
-      if (config.configKey === 'import.max_rows') {
+      } else if (config.configKey === 'import.max_rows') {
         systemConfig.maxImportRows = Number(config.configValue)
       } else if (config.configKey === 'import.max_file_size') {
         systemConfig.maxFileSize = Number(config.configValue)

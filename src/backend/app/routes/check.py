@@ -305,7 +305,10 @@ def check_work_hours_consistency():
             # 计算该工单时间范围内的法定工作日数
             actual_days = (end_time - start_time).days + 1
             workdays_in_range = get_workdays_in_range(start_time, end_time, [1, 2, 3, 4, 5])
-            legal_work_hours = len(workdays_in_range) * 8
+            # 从配置中读取标准工作时长
+            standard_hours_config = SysConfig.query.filter_by(config_key='check.standard_hours').first()
+            standard_hours = int(standard_hours_config.config_value) if standard_hours_config else 8
+            legal_work_hours = len(workdays_in_range) * standard_hours
 
             # 实际工作时长 = 各类型工作时长之和
             actual_work_hours = (pd_hours or 0) + (pr_hours or 0) + (ps_hours or 0) + (di_hours or 0)

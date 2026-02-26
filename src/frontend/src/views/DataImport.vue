@@ -149,7 +149,7 @@
       <el-alert title="注意事项" type="warning" :closable="false" show-icon>
         <ul class="help-list">
           <li>仅导入审批结果为"通过"且审批状态为"已完成"的记录</li>
-          <li>数据唯一性标识：序号 + 姓名 + 开始时间 + 项目名称</li>
+          <li>数据唯一性标识：序号 + 创建人 + 开始时间 + 项目名称</li>
           <li>单次导入最多 {{ maxImportRows }} 行数据</li>
           <li>文件内容需包含预设的 15 个字段，字段名称需与系统一致</li>
           <li>日期格式支持：yyyy-MM-dd HH:mm:ss 或 yyyy-MM-dd</li>
@@ -287,12 +287,12 @@ const goToUserSettings = () => {
 
 const loadSystemConfig = async () => {
   try {
-    const res = await getSystemConfig({ category: 'system' })
-    const configs = res.data.system || []
+    const res = await getSystemConfig({ category: 'import' })
+    const configs = res.data.import || []
     configs.forEach(config => {
-      if (config.configKey === 'system.max_import_rows') {
+      if (config.configKey === 'import.max_rows') {
         maxImportRows.value = Number(config.configValue)
-      } else if (config.configKey === 'system.max_file_size') {
+      } else if (config.configKey === 'import.max_file_size') {
         maxFileSize.value = Number(config.configValue)
       }
     })

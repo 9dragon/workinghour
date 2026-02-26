@@ -243,7 +243,7 @@ def upload_file():
             # 使用"创建人部门"字段（列45）作为部门数据来源
             creator_dept_val = row.get('创建人部门')
             dept_name = str(creator_dept_val).strip() if pd.notna(creator_dept_val) else None
-            user_val = row.get('姓名')
+            user_val = row.get('创建人')
             user_name = str(user_val).strip() if pd.notna(user_val) else ''
 
             if serial_no not in serial_dept_map:
@@ -350,7 +350,7 @@ def upload_file():
 
         # 处理每一行数据
         # 调整必填字段：基础信息必须填写，工时类型至少要有一种
-        required_fields = ['序号', '姓名', '开始时间', '结束时间', '审批结果', '审批状态']
+        required_fields = ['序号', '创建人', '开始时间', '结束时间', '审批结果', '审批状态']
 
         for idx, row in df.iterrows():
             row_num = idx + 2  # Excel行号(含表头)
@@ -370,7 +370,7 @@ def upload_file():
 
             # 提取基础数据
             serial_no = str(row['序号']).strip()
-            user_name = str(row['姓名']).strip()
+            user_name = str(row['创建人']).strip()
             start_time_str = str(row['开始时间']).strip()
             end_time_str = str(row['结束时间']).strip()
             approval_result = str(row['审批结果']).strip()
@@ -425,7 +425,7 @@ def upload_file():
                     repeats.append({
                         'row': row_num,
                         'field': '数据重复',
-                        'error': f'姓名{user_name}、时间{start_time_str}、项目{record.project_name}、类型{record.work_type}的数据已存在',
+                        'error': f'创建人{user_name}、时间{start_time_str}、项目{record.project_name}、类型{record.work_type}的数据已存在',
                         'existing_batch': existing.import_batch_no
                     })
 
