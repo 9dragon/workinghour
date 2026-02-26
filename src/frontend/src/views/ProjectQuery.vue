@@ -198,14 +198,14 @@ const loadDict = async () => {
   }
 }
 
-// 项目经理改变时，清空项目名称
+// 项目经理改变时，清空项目名称（保留级联筛选逻辑）
 const handleManagerChange = () => {
   filterForm.projectName = ''
 }
 
-// 项目名称改变时，清空项目经理
+// 项目名称改变时（不再自动清空项目经理，允许独立筛选）
 const handleProjectChange = () => {
-  filterForm.projectManager = ''
+  // 项目经理保持不变，允许两个筛选条件同时使用
 }
 
 const loadData = async () => {
