@@ -35,6 +35,8 @@ def create_app(config_class=Config):
     from .routes.holidays import holidays_bp
     from .routes.user_management import user_mgmt_bp
     from .routes.employee_management import employee_mgmt_bp
+    from .routes.budget import budget_bp
+    from .routes.projects import projects_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(data_bp, url_prefix='/api/v1')
@@ -45,6 +47,8 @@ def create_app(config_class=Config):
     app.register_blueprint(holidays_bp, url_prefix='/api/v1')
     app.register_blueprint(user_mgmt_bp, url_prefix='/api/v1')
     app.register_blueprint(employee_mgmt_bp, url_prefix='/api/v1')
+    app.register_blueprint(budget_bp, url_prefix='/api/v1')
+    app.register_blueprint(projects_bp, url_prefix='/api/v1')
 
     # 创建数据库表
     with app.app_context():

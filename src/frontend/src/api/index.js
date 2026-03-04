@@ -1047,3 +1047,402 @@ export const deleteEmployee = (id) => {
   return request.delete(`/employees/${id}`)
 }
 
+// ==================== 预算管理相关接口 ====================
+
+// 获取员工角色列表
+export const getEmployeeRoles = (params) => {
+  if (MOCK_MODE) {
+    const mockEmployees = [
+      { id: 1, employeeName: '张三', deptName: '研发部', role: 'software_dev', roleLabel: '软件实施', createdAt: '2026-01-02T10:00:00+08:00' },
+      { id: 2, employeeName: '李四', deptName: '研发部', role: 'project_manager', roleLabel: '项目管理', createdAt: '2026-01-03T10:00:00+08:00' },
+      { id: 3, employeeName: '王五', deptName: '产品部', role: 'data_collection', roleLabel: '数采实施', createdAt: '2026-01-04T10:00:00+08:00' },
+      { id: 4, employeeName: '赵六', deptName: '运营部', role: 'staff', roleLabel: '普通员工', createdAt: '2026-01-05T10:00:00+08:00' }
+    ]
+    const { page = 1, size = 20, keyword = '', role = '' } = params || {}
+
+    let filteredList = mockEmployees
+    if (keyword) {
+      filteredList = mockEmployees.filter(e =>
+        e.employeeName.includes(keyword) || (e.deptName && e.deptName.includes(keyword))
+      )
+    }
+    if (role) {
+      filteredList = filteredList.filter(e => e.role === role)
+    }
+
+    const total = filteredList.length
+    const startIndex = (page - 1) * size
+    const endIndex = startIndex + size
+    const pagedList = filteredList.slice(startIndex, endIndex)
+
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: {
+        list: pagedList,
+        total: total,
+        page: page,
+        size: size
+      }
+    })
+  }
+  return request.get('/budget/employee-roles', { params })
+}
+
+// 更新员工角色
+export const updateEmployeeRole = (id, data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '更新成功',
+      data: {
+        id: id,
+        employeeName: '张三',
+        deptName: '研发部',
+        role: data.role,
+        roleLabel: data.role === 'project_manager' ? '项目管理' : data.role === 'data_collection' ? '数采实施' : data.role === 'software_dev' ? '软件实施' : '普通员工',
+        updatedAt: new Date().toISOString()
+      }
+    })
+  }
+  return request.put(`/budget/employee-roles/${id}`, data)
+}
+
+// 批量更新员工角色
+export const batchUpdateEmployeeRoles = (data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: `成功更新 ${data.employeeIds?.length || 0} 位员工的角色`,
+      data: {
+        updatedCount: data.employeeIds?.length || 0
+      }
+    })
+  }
+  return request.put('/budget/employee-roles/batch', data)
+}
+
+// 按角色获取员工列表
+export const getEmployeesByRole = (params) => {
+  if (MOCK_MODE) {
+    const mockEmployees = [
+      { id: 1, employeeName: '张三', deptName: '研发部' },
+      { id: 2, employeeName: '李四', deptName: '研发部' },
+      { id: 3, employeeName: '王五', deptName: '产品部' }
+    ]
+
+    const { role } = params || {}
+    let filteredList = mockEmployees
+    if (role) {
+      filteredList = mockEmployees.slice(0, 2)
+    }
+
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: filteredList
+    })
+  }
+  return request.get('/budget/employees-by-role', { params })
+}
+
+// 创建预算
+export const createBudget = (data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '创建成功',
+      data: {
+        id: Date.now(),
+        projectCode: data.projectCode,
+        projectName: '智慧城市平台',
+        budgetType: data.budgetType,
+        budgetTypeLabel: data.budgetType === 'project_manager' ? '项目管理' : data.budgetType === 'data_collection' ? '数采实施' : '软件实施',
+        budgetHours: data.budgetHours,
+        createdAt: new Date().toISOString()
+      }
+    })
+  }
+  return request.post('/budget/projects', data)
+}
+
+// 更新预算
+export const updateBudget = (id, data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '更新成功',
+      data: {
+        id: id,
+        budgetHours: data.budgetHours,
+        updatedAt: new Date().toISOString()
+      }
+    })
+  }
+  return request.put(`/budget/projects/${id}`, data)
+}
+
+// 删除预算
+export const deleteBudget = (id) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '删除成功',
+      data: null
+    })
+  }
+  return request.delete(`/budget/projects/${id}`)
+}
+
+// 获取预算列表
+export const getBudgets = (params) => {
+  if (MOCK_MODE) {
+    const mockBudgets = [
+      { id: 1, projectCode: 'D4086', projectName: '智慧城市平台', budgetType: 'project_manager', budgetTypeLabel: '项目管理', budgetHours: 100, createdAt: '2026-01-02T10:00:00+08:00' },
+      { id: 2, projectCode: 'D4086', projectName: '智慧城市平台', budgetType: 'software_dev', budgetTypeLabel: '软件实施', budgetHours: 500, createdAt: '2026-01-02T10:00:00+08:00' },
+      { id: 3, projectCode: 'D3302', projectName: '企业管理系统', budgetType: 'project_manager', budgetTypeLabel: '项目管理', budgetHours: 80, createdAt: '2026-01-03T10:00:00+08:00' },
+      { id: 4, projectCode: 'D3302', projectName: '企业管理系统', budgetType: 'data_collection', budgetTypeLabel: '数采实施', budgetHours: 200, createdAt: '2026-01-03T10:00:00+08:00' },
+      { id: 5, projectCode: 'D3255', projectName: '移动应用开发', budgetType: 'software_dev', budgetTypeLabel: '软件实施', budgetHours: 300, createdAt: '2026-01-04T10:00:00+08:00' }
+    ]
+    const { page = 1, size = 20, projectCode = '', budgetType = '' } = params || {}
+
+    let filteredList = mockBudgets
+    if (projectCode) {
+      filteredList = filteredList.filter(b => b.projectCode.includes(projectCode))
+    }
+    if (budgetType) {
+      filteredList = filteredList.filter(b => b.budgetType === budgetType)
+    }
+
+    const total = filteredList.length
+    const startIndex = (page - 1) * size
+    const endIndex = startIndex + size
+    const pagedList = filteredList.slice(startIndex, endIndex)
+
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: {
+        list: pagedList,
+        total: total,
+        page: page,
+        size: size
+      }
+    })
+  }
+  return request.get('/budget/projects', { params })
+}
+
+// 获取预算详情
+export const getBudgetDetail = (projectName, fiscalYear) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: [
+        { id: 1, projectName: projectName, role: 'project_manager', roleLabel: '项目管理', budgetHours: 100, fiscalYear: fiscalYear },
+        { id: 2, projectName: projectName, role: 'software_dev', roleLabel: '软件实施', budgetHours: 500, fiscalYear: fiscalYear }
+      ]
+    })
+  }
+  return request.get(`/budget/projects/${encodeURIComponent(projectName)}/${fiscalYear}`)
+}
+
+// 获取统计汇总
+export const getStatisticsSummary = (params) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: {
+        totalBudgetHours: 1180,
+        totalActualHours: 850,
+        completionRate: 72.03
+      }
+    })
+  }
+  return request.get('/budget/statistics/summary', { params })
+}
+
+// 按项目统计
+export const getStatisticsByProject = (params) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: [
+        { projectName: '智慧城市平台', budgetType: 'project_manager', budgetTypeLabel: '项目管理', budgetHours: 100, actualHours: 85, completionRate: 85 },
+        { projectName: '智慧城市平台', budgetType: 'software_dev', budgetTypeLabel: '软件实施', budgetHours: 500, actualHours: 380, completionRate: 76 },
+        { projectName: '企业管理系统', budgetType: 'project_manager', budgetTypeLabel: '项目管理', budgetHours: 80, actualHours: 75, completionRate: 93.75 },
+        { projectName: '企业管理系统', budgetType: 'data_collection', budgetTypeLabel: '数采实施', budgetHours: 200, actualHours: 150, completionRate: 75 },
+        { projectName: '移动应用开发', budgetType: 'software_dev', budgetTypeLabel: '软件实施', budgetHours: 300, actualHours: 160, completionRate: 53.33 }
+      ]
+    })
+  }
+  return request.get('/budget/statistics/by-project', { params })
+}
+
+// 按员工统计
+export const getStatisticsByEmployee = (params) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: [
+        {
+          id: 1,
+          employeeName: '李四',
+          deptName: '研发部',
+          role: 'project_manager',
+          roleLabel: '项目管理',
+          totalHours: 160,
+          projects: [
+            { projectName: '智慧城市平台', hours: 85 },
+            { projectName: '企业管理系统', hours: 75 }
+          ]
+        },
+        {
+          id: 2,
+          employeeName: '张三',
+          deptName: '研发部',
+          role: 'software_dev',
+          roleLabel: '软件实施',
+          totalHours: 540,
+          projects: [
+            { projectName: '智慧城市平台', hours: 380 },
+            { projectName: '移动应用开发', hours: 160 }
+          ]
+        },
+        {
+          id: 3,
+          employeeName: '王五',
+          deptName: '产品部',
+          role: 'data_collection',
+          roleLabel: '数采实施',
+          totalHours: 150,
+          projects: [
+            { projectName: '企业管理系统', hours: 150 }
+          ]
+        }
+      ]
+    })
+  }
+  return request.get('/budget/statistics/by-employee', { params })
+}
+
+// ========== 项目管理 API ==========
+
+// 获取项目列表
+export const getProjects = (params) => {
+  if (MOCK_MODE) {
+    const { page = 1, size = 20, projectCode = '', projectType = '', status = '' } = params || {}
+    const allProjects = [
+      { id: 1, projectCode: 'D4086', projectName: '智慧城市平台', projectType: 'delivery', projectTypeLabel: '项目交付', projectPrefix: 'D', projectManager: '张三', status: 'active', statusLabel: '进行中', createdAt: '2026-01-01 10:00:00', updatedAt: '2026-01-01 10:00:00' },
+      { id: 2, projectCode: 'P1234', projectName: '企业管理系统', projectType: 'research', projectTypeLabel: '产研项目', projectPrefix: 'P', projectManager: '李四', status: 'active', statusLabel: '进行中', createdAt: '2026-01-02 10:00:00', updatedAt: '2026-01-02 10:00:00' },
+      { id: 3, projectCode: 'D5678', projectName: '移动应用开发', projectType: 'delivery', projectTypeLabel: '项目交付', projectPrefix: 'D', projectManager: '王五', status: 'completed', statusLabel: '已完成', createdAt: '2026-01-03 10:00:00', updatedAt: '2026-01-20 10:00:00' },
+    ]
+    let filtered = allProjects
+    if (projectCode) {
+      filtered = filtered.filter(p => p.projectCode.includes(projectCode))
+    }
+    if (projectType) {
+      filtered = filtered.filter(p => p.projectType === projectType)
+    }
+    if (status) {
+      filtered = filtered.filter(p => p.status === status)
+    }
+    const start = (page - 1) * size
+    const list = filtered.slice(start, start + size)
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: { list, total: filtered.length, page, size }
+    })
+  }
+  return request.get('/projects', { params })
+}
+
+// 获取项目详情
+export const getProjectDetail = (id) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: {
+        id: 1,
+        projectCode: 'D4086',
+        projectName: '智慧城市平台',
+        projectType: 'delivery',
+        projectTypeLabel: '项目交付',
+        projectPrefix: 'D',
+        projectManager: '张三',
+        status: 'active',
+        statusLabel: '进行中',
+        createdAt: '2026-01-01 10:00:00',
+        updatedAt: '2026-01-01 10:00:00',
+        stats: {
+          totalHours: 1250.5,
+          totalOvertime: 120.0,
+          recordCount: 156
+        }
+      }
+    })
+  }
+  return request.get(`/projects/${id}`)
+}
+
+// 创建项目
+export const createProject = (data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '创建成功',
+      data: {
+        id: Date.now(),
+        ...data,
+        projectTypeLabel: data.projectType === 'delivery' ? '项目交付' : data.projectType === 'research' ? '产研项目' : '其他项目',
+        projectPrefix: data.projectCode[0],
+        statusLabel: '进行中',
+        createdAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        updatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19)
+      }
+    })
+  }
+  return request.post('/projects', data)
+}
+
+// 更新项目
+export const updateProject = (id, data) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '更新成功',
+      data: {
+        id,
+        projectCode: 'D4086',
+        projectName: data.projectName,
+        projectType: 'delivery',
+        projectTypeLabel: '项目交付',
+        projectPrefix: 'D',
+        projectManager: data.projectManager,
+        status: data.status,
+        statusLabel: data.status === 'active' ? '进行中' : data.status === 'completed' ? '已完成' : '已暂停',
+        createdAt: '2026-01-01 10:00:00',
+        updatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19)
+      }
+    })
+  }
+  return request.put(`/projects/${id}`, data)
+}
+
+// 删除项目
+export const deleteProject = (id) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '删除成功'
+    })
+  }
+  return request.delete(`/projects/${id}`)
+}
+

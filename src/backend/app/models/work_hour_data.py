@@ -29,6 +29,7 @@ class WorkHourData(db.Model):
     # 系统扩展字段
     import_batch_no = db.Column(db.String(50), nullable=False, index=True)
     import_time = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, index=True)  # 关联项目表
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 

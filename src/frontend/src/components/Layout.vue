@@ -14,6 +14,17 @@
         text-color="#bfcbd9"
         active-text-color="#409EFF"
       >
+        <el-sub-menu index="statistics">
+          <template #title>
+            <el-icon><DataAnalysis /></el-icon>
+            <span>工时统计</span>
+          </template>
+          <el-menu-item index="/budget/statistics">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>工时统计</span>
+          </el-menu-item>
+        </el-sub-menu>
+
         <el-sub-menu index="query">
           <template #title>
             <el-icon><Search /></el-icon>
@@ -68,6 +79,14 @@
           <el-menu-item index="/data/employee-management">
             <el-icon><UserFilled /></el-icon>
             <span>员工管理</span>
+          </el-menu-item>
+          <el-menu-item index="/data/project-management">
+            <el-icon><FolderOpened /></el-icon>
+            <span>项目管理</span>
+          </el-menu-item>
+          <el-menu-item index="/data/budget-entry">
+            <el-icon><Edit /></el-icon>
+            <span>预算录入</span>
           </el-menu-item>
         </el-sub-menu>
 

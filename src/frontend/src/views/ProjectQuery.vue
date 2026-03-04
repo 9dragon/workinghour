@@ -118,7 +118,16 @@
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="userName" label="姓名" width="90" />
         <el-table-column prop="deptName" label="部门" width="130" />
-        <el-table-column prop="projectName" label="项目名称" width="200" show-overflow-tooltip />
+        <el-table-column prop="projectName" label="项目名称" width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <el-tag v-if="isDPProject(row.projectName)" :type="getProjectTagType(row.projectName)" size="small">
+                {{ getProjectPrefix(row.projectName) }}
+              </el-tag>
+              <span>{{ row.projectName }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="projectManager" label="项目经理" width="90" show-overflow-tooltip />
         <el-table-column prop="startTime" label="开始时间" width="145" />
         <el-table-column prop="endTime" label="结束时间" width="145" />
@@ -249,6 +258,23 @@ const handleSizeChange = () => {
 
 const handlePageChange = () => {
   loadData()
+}
+
+// 判断是否为 D/P 开头的项目
+const isDPProject = (name) => {
+  return name && (name.startsWith('D') || name.startsWith('P'))
+}
+
+// 获取项目前缀
+const getProjectPrefix = (name) => {
+  return name ? name.charAt(0) : ''
+}
+
+// 获取项目标签样式
+const getProjectTagType = (name) => {
+  if (!name) return 'info'
+  const prefix = name.charAt(0).toUpperCase()
+  return prefix === 'D' ? 'success' : prefix === 'P' ? 'warning' : 'info'
 }
 
 onMounted(() => {

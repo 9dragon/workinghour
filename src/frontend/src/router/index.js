@@ -39,6 +39,24 @@ const routes = [
         meta: { title: '员工管理' }
       },
       {
+        path: 'data/project-management',
+        name: 'ProjectManagement',
+        component: () => import('@/views/ProjectManagement.vue'),
+        meta: { title: '项目管理' }
+      },
+      {
+        path: 'data/budget-entry',
+        name: 'BudgetManagement',
+        component: () => import('@/views/BudgetManagement.vue'),
+        meta: { title: '预算录入' }
+      },
+      {
+        path: 'budget/statistics',
+        name: 'WorkHourStatistics',
+        component: () => import('@/views/WorkHourStatistics.vue'),
+        meta: { title: '工时统计' }
+      },
+      {
         path: 'query/project',
         name: 'ProjectQuery',
         component: () => import('@/views/ProjectQuery.vue'),

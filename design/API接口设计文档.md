@@ -82,8 +82,9 @@ Authorization: Bearer <JWT_TOKEN>
 |工时查询|3|项目维度、组织维度、结果导出|
 |工时核对|6|周报提交完整性检查、工作时长一致性检查、核对历史、核对详情、下载核对报告、获取数据字典|
 |节假日管理|5|节假日列表、添加节假日、删除节假日、批量导入、工作日计算|
+|预算管理|11|员工角色管理、预算CRUD、预算统计、项目管理|
 |系统设置|4|数据备份、数据恢复、获取配置、更新配置|
-**总计**|**28**||
+**总计**|**39**||
 
 ---
 
@@ -1277,6 +1278,473 @@ Authorization: Bearer <JWT_TOKEN>
 
 ---
 
+## 六、预算管理模块
+
+### 6.1 员工角色管理
+
+#### 6.1.1 获取员工角色列表
+
+**接口地址：** `GET /api/v1/budget/employee-roles`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**查询参数：**
+
+|参数名|类型|必填|默认值|说明|
+|---|---|---|---|---|
+|page|integer|否|1|页码|
+|size|integer|否|20|每页条数|
+|keyword|string|否|-|关键词（姓名/部门）|
+|role|string|否|-|角色筛选：project_manager/data_collection/software_dev/staff|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "查询成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "employeeName": "张三",
+        "deptName": "研发部",
+        "role": "project_manager",
+        "roleLabel": "项目管理",
+        "createdAt": "2026-01-15T10:00:00+08:00",
+        "updatedAt": "2026-01-15T10:00:00+08:00"
+      }
+    ],
+    "total": 50,
+    "page": 1,
+    "size": 20
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+#### 6.1.2 更新员工角色
+
+**接口地址：** `PUT /api/v1/budget/employee-roles/{employee_id}`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
+```
+
+**路径参数：**
+
+|参数名|类型|必填|说明|
+|---|---|---|---|
+|employee_id|integer|是|员工ID|
+
+**请求参数：**
+
+```json
+{
+  "role": "project_manager"
+}
+```
+
+|参数名|类型|必填|说明|
+|---|---|---|---|
+|role|string|是|角色：project_manager/data_collection/software_dev/staff|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "角色更新成功",
+  "data": {
+    "id": 1,
+    "employeeName": "张三",
+    "deptName": "研发部",
+    "role": "project_manager",
+    "roleLabel": "项目管理",
+    "updatedAt": "2026-01-15T10:30:00+08:00"
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+**错误码：**
+
+|错误码|说明|
+|---|---|
+|8001|员工不存在|
+|8002|无效的角色值|
+
+---
+
+### 6.2 项目预算管理
+
+#### 6.2.1 创建项目预算
+
+**接口地址：** `POST /api/v1/budget/projects`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
+```
+
+**请求参数：**
+
+```json
+{
+  "projectCode": "D4086",
+  "budgetType": "project_manager",
+  "budgetHours": 100
+}
+```
+
+|参数名|类型|必填|说明|
+|---|---|---|---|
+|projectCode|string|是|项目代码|
+|budgetType|string|是|预算类型：project_manager/data_collection/software_dev|
+|budgetHours|number|是|预算工时（人天），必须为非负数|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "预算创建成功",
+  "data": {
+    "id": 1,
+    "projectName": "智慧城市平台",
+    "projectCode": "D4086",
+    "budgetType": "project_manager",
+    "budgetTypeLabel": "项目管理",
+    "budgetHours": 100,
+    "createdAt": "2026-01-15T10:30:00+08:00"
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+**错误码：**
+
+|错误码|说明|
+|---|---|
+|8101|项目代码不能为空|
+|8102|预算类型不能为空|
+|8103|预算工时必须是非负数|
+|8104|无效的类型值|
+|8105|该项目已存在该类型的预算|
+|8106|项目不存在|
+
+**业务规则：**
+- 同一项目代码 + 同一预算类型只能存在一条预算记录
+- 预算工时必须为非负数
+
+#### 6.2.2 获取预算列表
+
+**接口地址：** `GET /api/v1/budget/projects`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**查询参数：**
+
+|参数名|类型|必填|默认值|说明|
+|---|---|---|---|---|
+|page|integer|否|1|页码|
+|size|integer|否|20|每页条数|
+|projectCode|string|否|-|项目代码筛选（模糊匹配）|
+|budgetType|string|否|-|预算类型筛选|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "查询成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "projectName": "智慧城市平台",
+        "projectCode": "D4086",
+        "budgetType": "project_manager",
+        "budgetTypeLabel": "项目管理",
+        "budgetHours": 100,
+        "createdAt": "2026-01-15T10:30:00+08:00"
+      }
+    ],
+    "total": 50,
+    "page": 1,
+    "size": 20
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+#### 6.2.3 更新预算
+
+**接口地址：** `PUT /api/v1/budget/projects/{budget_id}`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
+```
+
+**路径参数：**
+
+|参数名|类型|必填|说明|
+|---|---|---|---|
+|budget_id|integer|是|预算ID|
+
+**请求参数：**
+
+```json
+{
+  "budgetHours": 120
+}
+```
+
+|参数名|类型|必填|说明|
+|---|---|---|---|
+|budgetHours|number|是|预算工时（人天），必须为非负数|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "预算更新成功",
+  "data": {
+    "id": 1,
+    "projectName": "智慧城市平台",
+    "projectCode": "D4086",
+    "budgetType": "project_manager",
+    "budgetTypeLabel": "项目管理",
+    "budgetHours": 120,
+    "updatedAt": "2026-01-15T10:30:00+08:00"
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+#### 6.2.4 删除预算
+
+**接口地址：** `DELETE /api/v1/budget/projects/{budget_id}`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**路径参数：**
+
+|参数名|类型|必填|说明|
+|---|---|---|---|
+|budget_id|integer|是|预算ID|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "预算删除成功",
+  "data": null,
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+---
+
+### 6.3 预算统计
+
+#### 6.3.1 预算统计汇总
+
+**接口地址：** `GET /api/v1/budget/statistics/summary`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**查询参数：**
+
+|参数名|类型|必填|默认值|说明|
+|---|---|---|---|---|
+|projectCode|string|否|-|项目代码筛选|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "查询成功",
+  "data": {
+    "totalBudgetHours": 1180,
+    "totalActualHours": 850,
+    "completionRate": 72.03
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+#### 6.3.2 按项目统计
+
+**接口地址：** `GET /api/v1/budget/statistics/by-project`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "查询成功",
+  "data": [
+    {
+      "projectName": "智慧城市平台",
+      "projectCode": "D4086",
+      "budgetType": "project_manager",
+      "budgetTypeLabel": "项目管理",
+      "budgetHours": 100,
+      "actualHours": 85,
+      "completionRate": 85
+    },
+    {
+      "projectName": "智慧城市平台",
+      "projectCode": "D4086",
+      "budgetType": "software_dev",
+      "budgetTypeLabel": "软件实施",
+      "budgetHours": 500,
+      "actualHours": 380,
+      "completionRate": 76
+    }
+  ],
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+#### 6.3.3 按员工统计
+
+**接口地址：** `GET /api/v1/budget/statistics/by-employee`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**查询参数：**
+
+|参数名|类型|必填|默认值|说明|
+|---|---|---|---|---|
+|projectName|string|否|-|项目名称筛选|
+|budgetType|string|否|-|预算类型筛选|
+|projectCode|string|否|-|项目代码筛选|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "查询成功",
+  "data": [
+    {
+      "id": 1,
+      "employeeName": "张三",
+      "deptName": "研发部",
+      "role": "software_dev",
+      "roleLabel": "软件实施",
+      "totalHours": 540,
+      "projects": [
+        {
+          "projectName": "智慧城市平台",
+          "hours": 380
+        },
+        {
+          "projectName": "移动应用开发",
+          "hours": 160
+        }
+      ]
+    }
+  ],
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+---
+
+### 6.4 项目管理
+
+#### 6.4.1 获取项目列表
+
+**接口地址：** `GET /api/v1/projects`
+
+**请求头：**
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**查询参数：**
+
+|参数名|类型|必填|默认值|说明|
+|---|---|---|---|---|
+|page|integer|否|1|页码|
+|size|integer|否|20|每页条数|
+|projectCode|string|否|-|项目代码筛选（模糊匹配）|
+|projectType|string|否|-|项目类型：delivery/research|
+|status|string|否|-|状态：active/completed|
+
+**成功响应：**
+
+```json
+{
+  "code": 200,
+  "message": "查询成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "projectCode": "D4086",
+        "projectName": "智慧城市平台",
+        "projectType": "delivery",
+        "projectTypeLabel": "项目交付",
+        "projectPrefix": "D",
+        "projectManager": "张三",
+        "status": "active",
+        "statusLabel": "进行中",
+        "createdAt": "2026-01-01T10:00:00+08:00",
+        "updatedAt": "2026-01-01T10:00:00+08:00"
+      }
+    ],
+    "total": 50,
+    "page": 1,
+    "size": 20
+  },
+  "timestamp": "2026-01-15T10:30:00+08:00"
+}
+```
+
+---
+
 ## 七、节假日管理模块
 
 ### 7.1 查询节假日列表
@@ -2190,6 +2658,16 @@ X-API-Sunset: 2026-12-31
 |工时核对|核对历史|GET|/api/v1/check/history|是|
 |工时核对|核对详情|GET|/api/v1/check/history/{checkNo}|是|
 |工时核对|下载报告|GET|/api/v1/check/history/{checkNo}/report|是|
+|预算管理|获取员工角色列表|GET|/api/v1/budget/employee-roles|是|
+|预算管理|更新员工角色|PUT|/api/v1/budget/employee-roles/{employee_id}|是|
+|预算管理|创建项目预算|POST|/api/v1/budget/projects|是|
+|预算管理|获取预算列表|GET|/api/v1/budget/projects|是|
+|预算管理|更新预算|PUT|/api/v1/budget/projects/{budget_id}|是|
+|预算管理|删除预算|DELETE|/api/v1/budget/projects/{budget_id}|是|
+|预算管理|预算统计汇总|GET|/api/v1/budget/statistics/summary|是|
+|预算管理|按项目统计|GET|/api/v1/budget/statistics/by-project|是|
+|预算管理|按员工统计|GET|/api/v1/budget/statistics/by-employee|是|
+|预算管理|获取项目列表|GET|/api/v1/projects|是|
 |节假日管理|查询节假日列表|GET|/api/v1/holidays|是|
 |节假日管理|添加节假日|POST|/api/v1/holidays|是|
 |节假日管理|删除节假日|DELETE|/api/v1/holidays/{id}|是|
@@ -2200,7 +2678,7 @@ X-API-Sunset: 2026-12-31
 |系统设置|获取配置|GET|/api/v1/system/config|是|
 |系统设置|更新配置|PUT|/api/v1/system/config|是|
 
-**总计：28个接口**
+**总计：39个接口**
 
 ### 18.2 字段命名转换规范
 

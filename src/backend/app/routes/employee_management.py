@@ -18,15 +18,22 @@ def get_employees():
         page = int(request.args.get('page', 1))
         size = int(request.args.get('size', 20))
         keyword = request.args.get('keyword', '')
+        dept_filter = request.args.get('dept', '')
+        role_filter = request.args.get('role', '')
 
         query = Employee.query
+
+        # 关键词搜索（仅搜索姓名）
         if keyword:
-            query = query.filter(
-                db.or_(
-                    Employee.employee_name.like(f'%{keyword}%'),
-                    Employee.dept_name.like(f'%{keyword}%')
-                )
-            )
+            query = query.filter(Employee.employee_name.like(f'%{keyword}%'))
+
+        # 部门筛选
+        if dept_filter:
+            query = query.filter(Employee.dept_name == dept_filter)
+
+        # 角色筛选
+        if role_filter:
+            query = query.filter(Employee.role == role_filter)
 
         pagination = query.order_by(Employee.employee_name).paginate(
             page=page, per_page=size, error_out=False
@@ -55,18 +62,23 @@ def create_employee():
         # 验证必填字段
         if not data.get('employeeName'):
             return error_response(7001, '员工姓名不能为空', http_status=400)
-        if not data.get('deptName'):
-            return error_response(7002, '部门不能为空', http_status=400)
 
         # 检查员工是否已存在
         existing = Employee.query.filter_by(employee_name=data['employeeName']).first()
         if existing:
             return error_response(7003, '该员工已存在', http_status=400)
 
+        # 验证角色值（如果提供）
+        role = data.get('role', 'staff')
+        valid_roles = ['project_manager', 'data_collection', 'software_dev', 'staff']
+        if role not in valid_roles:
+            return error_response(7005, '无效的角色值', http_status=400)
+
         # 创建员工
         employee = Employee(
             employee_name=data['employeeName'],
-            dept_name=data['deptName']
+            dept_name=data.get('deptName', ''),
+            role=role
         )
 
         db.session.add(employee)
@@ -91,6 +103,12 @@ def update_employee(employee_id):
         data = request.get_json()
         if 'deptName' in data:
             employee.dept_name = data['deptName']
+        if 'role' in data:
+            # 验证角色值
+            valid_roles = ['project_manager', 'data_collection', 'software_dev', 'staff']
+            if data['role'] not in valid_roles:
+                return error_response(7005, '无效的角色值', http_status=400)
+            employee.role = data['role']
 
         db.session.commit()
         return success_response(data=employee.to_dict(), message='更新成功')

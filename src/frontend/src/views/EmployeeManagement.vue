@@ -39,11 +39,44 @@
       <div class="toolbar">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索姓名或部门"
-          style="width: 200px"
+          placeholder="搜索姓名"
+          style="width: 150px"
           clearable
-          @input="handleSearch"
         />
+        <el-select
+          v-model="deptFilter"
+          placeholder="筛选部门"
+          style="width: 150px"
+          clearable
+        >
+          <el-option
+            v-for="dept in deptList"
+            :key="dept"
+            :label="dept"
+            :value="dept"
+          />
+        </el-select>
+        <el-select
+          v-model="roleFilter"
+          placeholder="筛选角色"
+          style="width: 150px"
+          clearable
+        >
+          <el-option label="项目管理" value="project_manager" />
+          <el-option label="数采实施" value="data_collection" />
+          <el-option label="软件实施" value="software_dev" />
+          <el-option label="普通员工" value="staff" />
+        </el-select>
+        <el-button type="primary" @click="handleSearch">查询</el-button>
+        <el-button @click="handleReset">重置</el-button>
+        <div style="flex: 1"></div>
+        <el-button
+          type="warning"
+          :disabled="selectedEmployees.length === 0"
+          @click="handleBatchEdit"
+        >
+          批量编辑角色 ({{ selectedEmployees.length }})
+        </el-button>
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>
           添加员工
@@ -51,12 +84,21 @@
       </div>
 
       <!-- 用户列表 -->
-      <el-table :data="employeeList" border stripe>
+      <el-table :data="employeeList" border stripe @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="employeeName" label="姓名" width="150" />
         <el-table-column prop="deptName" label="部门" width="200">
           <template #default="{ row }">
             <el-tag v-if="row.deptName">{{ row.deptName }}</el-tag>
             <el-tag v-else type="danger">未配置</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="角色" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.role" :type="getRoleTagType(row.role)">
+              {{ row.roleLabel || getRoleLabel(row.role) }}
+            </el-tag>
+            <el-tag v-else type="info">普通员工</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -104,10 +146,44 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="formData.role" placeholder="请选择角色" style="width: 100%">
+            <el-option label="项目管理" value="project_manager" />
+            <el-option label="数采实施" value="data_collection" />
+            <el-option label="软件实施" value="software_dev" />
+            <el-option label="普通员工" value="staff" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleSave">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量编辑对话框 -->
+    <el-dialog v-model="batchDialogVisible" title="批量编辑角色" width="400px">
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 20px"
+      >
+        已选择 {{ selectedEmployees.length }} 位员工
+      </el-alert>
+      <el-form :model="batchFormData" label-width="80px">
+        <el-form-item label="新角色">
+          <el-select v-model="batchFormData.role" placeholder="请选择角色" style="width: 100%">
+            <el-option label="项目管理" value="project_manager" />
+            <el-option label="数采实施" value="data_collection" />
+            <el-option label="软件实施" value="software_dev" />
+            <el-option label="普通员工" value="staff" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleBatchSave">确定更新</el-button>
       </template>
     </el-dialog>
   </div>
@@ -116,7 +192,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getEmployees, createEmployee, updateEmployee, deleteEmployee } from '@/api'
+import { getEmployees, createEmployee, updateEmployee, deleteEmployee, updateEmployeeRole, batchUpdateEmployeeRoles } from '@/api'
 
 const employeeList = ref([])
 const deptList = ref([])  // 部门列表（自动聚合）
@@ -128,6 +204,9 @@ const pagination = reactive({
 })
 
 const searchKeyword = ref('')
+const roleFilter = ref('')
+const deptFilter = ref('')
+const selectedEmployees = ref([])
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('添加员工')
@@ -136,7 +215,13 @@ const isEdit = ref(false)
 const formData = reactive({
   id: null,
   employeeName: '',
-  deptName: ''
+  deptName: '',
+  role: 'staff'
+})
+
+const batchDialogVisible = ref(false)
+const batchFormData = reactive({
+  role: 'staff'
 })
 
 const loadUsers = async () => {
@@ -144,7 +229,9 @@ const loadUsers = async () => {
     const res = await getEmployees({
       page: pagination.page,
       size: pagination.size,
-      keyword: searchKeyword.value
+      keyword: searchKeyword.value,
+      role: roleFilter.value,
+      dept: deptFilter.value
     })
     employeeList.value = res.data.list
     pagination.total = res.data.total
@@ -163,8 +250,22 @@ const loadUsers = async () => {
   }
 }
 
+const handleSelectionChange = (selection) => {
+  selectedEmployees.value = selection
+}
+
 const handleSearch = () => {
   pagination.page = 1
+  selectedEmployees.value = []
+  loadUsers()
+}
+
+const handleReset = () => {
+  searchKeyword.value = ''
+  deptFilter.value = ''
+  roleFilter.value = ''
+  pagination.page = 1
+  selectedEmployees.value = []
   loadUsers()
 }
 
@@ -174,6 +275,7 @@ const handleAdd = () => {
   formData.id = null
   formData.employeeName = ''
   formData.deptName = ''
+  formData.role = 'staff'
   dialogVisible.value = true
 }
 
@@ -183,6 +285,7 @@ const handleEdit = (row) => {
   formData.id = row.id
   formData.employeeName = row.employeeName
   formData.deptName = row.deptName || ''
+  formData.role = row.role || 'staff'
   dialogVisible.value = true
 }
 
@@ -195,13 +298,15 @@ const handleSave = async () => {
 
     if (isEdit.value) {
       await updateEmployee(formData.id, {
-        deptName: formData.deptName
+        deptName: formData.deptName,
+        role: formData.role
       })
       ElMessage.success('更新成功')
     } else {
       await createEmployee({
         employeeName: formData.employeeName,
-        deptName: formData.deptName
+        deptName: formData.deptName,
+        role: formData.role
       })
       ElMessage.success('创建成功')
     }
@@ -228,6 +333,61 @@ const handleDelete = (row) => {
   })
 }
 
+const handleBatchEdit = () => {
+  if (selectedEmployees.value.length === 0) {
+    ElMessage.warning('请先选择要编辑的员工')
+    return
+  }
+
+  // 默认使用第一个选中员工的角色
+  batchFormData.role = selectedEmployees.value[0].role || 'staff'
+  batchDialogVisible.value = true
+}
+
+const handleBatchSave = async () => {
+  try {
+    if (!batchFormData.role) {
+      ElMessage.warning('请选择角色')
+      return
+    }
+
+    // 使用批量更新接口
+    const employeeIds = selectedEmployees.value.map(emp => emp.id)
+    await batchUpdateEmployeeRoles({
+      employeeIds,
+      role: batchFormData.role
+    })
+
+    ElMessage.success(`成功更新 ${selectedEmployees.value.length} 位员工的角色`)
+    batchDialogVisible.value = false
+    selectedEmployees.value = []
+    loadUsers()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '批量更新失败')
+    console.error(error)
+  }
+}
+
+const getRoleLabel = (role) => {
+  const labels = {
+    project_manager: '项目管理',
+    data_collection: '数采实施',
+    software_dev: '软件实施',
+    staff: '普通员工'
+  }
+  return labels[role] || '未知'
+}
+
+const getRoleTagType = (role) => {
+  const typeMap = {
+    project_manager: 'success',
+    data_collection: 'warning',
+    software_dev: 'primary',
+    staff: 'info'
+  }
+  return typeMap[role] || 'info'
+}
+
 onMounted(() => {
   loadUsers()
 })
@@ -250,5 +410,7 @@ onMounted(() => {
   margin-bottom: 20px;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 </style>

@@ -8,6 +8,7 @@ from app.models.work_hour_data import WorkHourData
 from app.models.import_record import ImportRecord
 from app.models.sys_config import SysConfig
 from app.models.employee import Employee
+from app.models.project import Project
 from app.utils.response import success_response, error_response
 from app.utils.jwt_utils import auth_required
 from app.utils.helpers import (
@@ -27,6 +28,98 @@ def allowed_file(filename):
     """检查文件扩展名"""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def get_or_create_project(project_name, project_manager=''):
+    """
+    获取或创建项目记录
+
+    参数:
+        project_name: 项目名称（可能包含项目代码前缀）
+        project_manager: 项目经理
+
+    返回:
+        project_id: 项目ID，如果不是正式项目则返回None
+    """
+    if not project_name:
+        return None
+
+    # 判断是否为正式项目（D或P开头）
+    if not (project_name.startswith('D') or project_name.startswith('P')):
+        return None
+
+    # 确定项目类型
+    if project_name.startswith('D'):
+        project_type = 'delivery'
+        project_prefix = 'D'
+    elif project_name.startswith('P'):
+        project_type = 'research'
+        project_prefix = 'P'
+    else:
+        return None
+
+    # 生成项目代码：使用完整项目名称或提取数字部分
+    # 格式1: "D4086 智慧城市" -> 提取 "D4086"
+    # 格式2: "P 数字工厂2.0" -> 使用 "P 数字工厂2.0"
+    import re
+    match = re.match(r'^([DP]\d+)', project_name)
+    if match:
+        # 有明确的项目编号，使用编号作为代码
+        project_code = match.group(1)
+    else:
+        # 使用项目名称的合适长度作为代码（最多20字符）
+        # 找第一个空格或标点符号作为分割点
+        for sep in [' ', '-', '_', '.']:
+            idx = project_name.find(sep)
+            if idx > 2:  # 至少保留 "D" 或 "P" 后面1个字符
+                project_code = project_name[:idx]
+                break
+        else:
+            # 没找到分隔符，使用全部（但限制长度）
+            project_code = project_name[:20]
+
+    # 提取中文名称（去掉项目代码前缀）
+    # 格式: "D4086 智慧城市" -> "智慧城市"
+    #      "P 数字工厂2.0" -> "数字工厂2.0"
+    display_name = project_name
+    if match:
+        # 有项目编号格式，去掉编号和后面的空格/符号
+        remainder = project_name[len(project_code):].strip()
+        # 去掉开头的分隔符（空格、-、_、.等）
+        for sep in [' ', '-', '_', '.', '、']:
+            if remainder.startswith(sep):
+                remainder = remainder[1:].strip()
+                break
+        display_name = remainder if remainder else project_name
+
+    # 先尝试通过项目代码查找现有项目
+    existing = Project.query.filter_by(project_code=project_code).first()
+    if existing:
+        # 如果找到了，更新中文名称和项目经理
+        if existing.project_name != display_name or (project_manager and existing.project_manager != project_manager):
+            existing.project_name = display_name
+            if project_manager:
+                existing.project_manager = project_manager
+            existing.updated_at = datetime.now()
+        return existing.id
+
+    # 再尝试通过中文名称查找（避免重复创建）
+    existing = Project.query.filter_by(project_name=display_name).first()
+    if existing:
+        return existing.id
+
+    # 创建新项目（只保存中文名称）
+    new_project = Project(
+        project_code=project_code,
+        project_name=display_name,  # 只保存中文名称
+        project_type=project_type,
+        project_prefix=project_prefix,
+        project_manager=project_manager,
+        status='active'
+    )
+    db.session.add(new_project)
+    db.session.flush()  # 获取ID但不提交事务
+    return new_project.id
 
 
 def split_work_types(row, serial_no, user_name, start_time, end_time,
@@ -120,6 +213,10 @@ def split_work_types(row, serial_no, user_name, start_time, end_time,
             # 获取项目经理
             project_manager = str(row.get(wt['manager_field'], '')).strip() if pd.notna(row.get(wt['manager_field'])) else ''
 
+            # 获取或创建项目ID
+            final_project_name = project_name if project_name else f"{wt['prefix'].replace('-', '')}工时"
+            project_id = get_or_create_project(final_project_name, project_manager)
+
             # 创建记录
             record = WorkHourData(
                 serial_no=serial_no,
@@ -127,8 +224,9 @@ def split_work_types(row, serial_no, user_name, start_time, end_time,
                 start_time=start_time,
                 end_time=end_time,
                 work_type=wt['type'],
-                project_name=project_name if project_name else f"{wt['prefix'].replace('-', '')}工时",
+                project_name=final_project_name,
                 project_manager=project_manager,
+                project_id=project_id,
                 work_hours=work_hours,
                 overtime_hours=overtime_hours,
                 work_content=work_content,
@@ -174,6 +272,7 @@ def split_work_types(row, serial_no, user_name, start_time, end_time,
                 work_type='leave',
                 project_name=leave_type if leave_type else '请假',
                 project_manager='',
+                project_id=None,  # 请假记录不关联项目
                 work_hours=0.0,
                 overtime_hours=0.0,
                 leave_hours=leave_hours,
@@ -329,7 +428,48 @@ def upload_file():
                 'totalErrors': len(dept_errors)
             }, http_status=400)
 
-        # 生成批次号
+        # 4. 自动填充 employees 表（新增员工记录）
+        # 使用字典去重，避免同一个员工被重复添加
+        employees_to_create_dict = {}  # employee_name -> Employee对象
+        employees_to_update = []
+
+        for serial_no, dept_value in serial_final_dept.items():
+            user_name = serial_user_map.get(serial_no, '')
+            if not user_name:
+                continue
+
+            # 如果已经在待创建列表中，跳过
+            if user_name in employees_to_create_dict:
+                continue
+
+            # 检查员工是否存在
+            existing_employee = Employee.query.filter_by(employee_name=user_name).first()
+
+            if existing_employee:
+                # 如果存在，检查是否需要更新部门
+                if existing_employee.dept_name != dept_value:
+                    existing_employee.dept_name = dept_value
+                    if existing_employee not in employees_to_update:
+                        employees_to_update.append(existing_employee)
+            else:
+                # 如果不存在，创建新员工记录（使用字典去重）
+                new_employee = Employee(
+                    employee_name=user_name,
+                    dept_name=dept_value,
+                    role='staff'  # 默认为 staff，后续可在员工管理中手动设置
+                )
+                employees_to_create_dict[user_name] = new_employee
+
+        # 批量创建和更新员工记录
+        if employees_to_create_dict:
+            db.session.bulk_save_objects(list(employees_to_create_dict.values()))
+            print(f"自动创建 {len(employees_to_create_dict)} 条员工记录")
+
+        if employees_to_update:
+            db.session.commit()
+            print(f"自动更新 {len(employees_to_update)} 条员工记录")
+
+        # 5. 生成批次号
         batch_no = generate_batch_no('IMP')
 
         # 初始化统计
@@ -438,6 +578,7 @@ def upload_file():
                         existing.overtime_hours = record.overtime_hours
                         existing.leave_hours = record.leave_hours
                         existing.project_manager = record.project_manager
+                        existing.project_id = record.project_id
                         existing.work_content = record.work_content
                         existing.dept_name = record.dept_name
                         existing.import_batch_no = batch_no
