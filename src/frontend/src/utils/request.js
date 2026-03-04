@@ -39,6 +39,10 @@ request.interceptors.response.use(
     if (res.code === 200) {
       return res
     } else {
+      // 登录接口不在这里显示错误，让登录页面自己处理
+      if (response.config.url?.includes('/auth/login')) {
+        return Promise.reject(new Error(res.message || '请求失败'))
+      }
       ElMessage.error(res.message || '请求失败')
       return Promise.reject(new Error(res.message || '请求失败'))
     }
@@ -72,6 +76,11 @@ request.interceptors.response.use(
           }
           reader.readAsText(data)
         })
+      }
+
+      // 登录接口不在这里显示错误，让登录页面自己处理
+      if (error.config?.url?.includes('/auth/login')) {
+        return Promise.reject(new Error(data.message || '登录失败'))
       }
 
       switch (status) {

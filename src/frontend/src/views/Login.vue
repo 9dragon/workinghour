@@ -60,6 +60,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { CircleClose } from '@element-plus/icons-vue'
 import { login } from '@/api'
 import { useUserStore } from '@/store'
 
@@ -68,6 +69,9 @@ const userStore = useUserStore()
 
 const loginFormRef = ref(null)
 const loading = ref(false)
+const isError = ref(false)
+const showError = ref(false)
+const errorMessage = ref('')
 
 const loginForm = reactive({
   username: '',
@@ -99,6 +103,31 @@ const handleLogin = async () => {
       router.push('/')
     } catch (error) {
       console.error('登录失败:', error)
+
+      // 直接使用后端返回的错误信息，不进行转换
+      const errorMsg = error.message || '登录失败，请重试'
+
+      // 显示错误信息
+      errorMessage.value = errorMsg
+      showError.value = true
+
+      // 触发抖动动画
+      isError.value = true
+      setTimeout(() => {
+        isError.value = false
+      }, 500)
+
+      // 同时显示消息提示
+      ElMessage.error({
+        message: errorMsg,
+        duration: 3000,
+        showClose: true
+      })
+
+      // 3秒后隐藏错误信息框
+      setTimeout(() => {
+        showError.value = false
+      }, 3000)
     } finally {
       loading.value = false
     }
@@ -180,5 +209,115 @@ const handleLogin = async () => {
 
 .login-footer p {
   margin: 0;
+}
+
+/* 错误提示框样式 */
+.error-message-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background-color: #fef0f0;
+  border: 1px solid #fde2e2;
+  border-radius: 4px;
+  color: #f56c6c;
+  animation: slideDown 0.3s ease;
+}
+
+.error-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.error-text {
+  font-size: 14px;
+  flex: 1;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 抖动动画 */
+.shake-animation {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes shake {
+  10%, 90% {
+    transform: translate3d(-1px, 0, 0);
+  }
+  20%, 80% {
+    transform: translate3d(2px, 0, 0);
+  }
+  30%, 50%, 70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%, 60% {
+    transform: translate3d(4px, 0, 0);
+  }
+}
+
+/* 错误提示框样式 */
+.error-message-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background-color: #fef0f0;
+  border: 1px solid #fde2e2;
+  border-radius: 4px;
+  color: #f56c6c;
+  animation: slideDown 0.3s ease;
+}
+
+.error-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.error-text {
+  font-size: 14px;
+  flex: 1;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 抖动动画 */
+.shake-animation {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes shake {
+  10%, 90% {
+    transform: translate3d(-1px, 0, 0);
+  }
+  20%, 80% {
+    transform: translate3d(2px, 0, 0);
+  }
+  30%, 50%, 70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%, 60% {
+    transform: translate3d(4px, 0, 0);
+  }
 }
 </style>

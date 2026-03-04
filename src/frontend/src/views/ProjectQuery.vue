@@ -12,7 +12,7 @@
             style="width: 150px"
           >
             <el-option
-              v-for="item in managerList"
+              v-for="item in filteredManagerList"
               :key="item"
               :label="item"
               :value="item"
@@ -195,6 +195,14 @@ const filteredProjectList = computed(() => {
   return managerProjectMap.value[filterForm.projectManager] || []
 })
 
+// 计算过滤后的经理列表
+const filteredManagerList = computed(() => {
+  if (!filterForm.projectName) {
+    return managerList.value
+  }
+  return projectManagerMap.value[filterForm.projectName] || []
+})
+
 const loadDict = async () => {
   try {
     const res = await getDataDict()
@@ -212,7 +220,7 @@ const handleManagerChange = () => {
   filterForm.projectName = ''
 }
 
-// 项目名称改变时（不再自动清空项目经理，允许独立筛选）
+// 项目名称改变时（不清空项目经理，允许两个筛选条件同时使用）
 const handleProjectChange = () => {
   // 项目经理保持不变，允许两个筛选条件同时使用
 }

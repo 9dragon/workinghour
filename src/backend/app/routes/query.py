@@ -31,6 +31,9 @@ def query_by_project():
         # 构建查询
         query = WorkHourData.query
 
+        # 只查询项目交付和产品研发类工时
+        query = query.filter(WorkHourData.work_type.in_(['project_delivery', 'product_research']))
+
         if project_name:
             query = query.filter(WorkHourData.project_name.like(f'%{project_name}%'))
 

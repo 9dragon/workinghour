@@ -4,6 +4,7 @@
 from flask import Blueprint
 from app.models.db import db
 from app.models.work_hour_data import WorkHourData
+from app.models.project import Project
 from app.utils.response import success_response, error_response
 
 data_bp = Blueprint('data', __name__)
@@ -13,46 +14,35 @@ data_bp = Blueprint('data', __name__)
 def get_data_dict():
     """获取数据字典"""
     try:
-        # 获取所有项目名称
-        projects = db.session.query(
-            WorkHourData.project_name
-        ).distinct().filter(
-            WorkHourData.project_name.isnot(None)
-        ).all()
+        # 从 projects 表获取所有活跃的项目
+        projects_query = Project.query.filter_by(status='active').all()
+        projects = [p.project_name for p in projects_query]
 
-        # 获取所有项目经理名称
-        managers = db.session.query(
-            WorkHourData.project_manager
+        # 获取所有项目经理（从 projects 表）
+        managers_query = db.session.query(
+            Project.project_manager
         ).distinct().filter(
-            WorkHourData.project_manager.isnot(None),
-            WorkHourData.project_manager != ''
+            Project.project_manager.isnot(None),
+            Project.project_manager != '',
+            Project.status == 'active'
         ).all()
+        managers = [m[0] for m in managers_query]
 
-        # 获取项目与经理的关联关系
-        project_manager = db.session.query(
-            WorkHourData.project_name,
-            WorkHourData.project_manager
-        ).distinct().filter(
-            WorkHourData.project_name.isnot(None),
-            WorkHourData.project_manager.isnot(None),
-            WorkHourData.project_manager != ''
-        ).all()
-
-        # 构建项目和经理的映射关系
+        # 构建项目和经理的映射关系（从 projects 表）
         project_manager_map = {}
         manager_project_map = {}
 
-        for project, manager in project_manager:
-            if project and manager:
-                if project not in project_manager_map:
-                    project_manager_map[project] = []
-                if manager not in project_manager_map[project]:
-                    project_manager_map[project].append(manager)
+        for p in projects_query:
+            if p.project_name and p.project_manager:
+                if p.project_name not in project_manager_map:
+                    project_manager_map[p.project_name] = []
+                if p.project_manager not in project_manager_map[p.project_name]:
+                    project_manager_map[p.project_name].append(p.project_manager)
 
-                if manager not in manager_project_map:
-                    manager_project_map[manager] = []
-                if project not in manager_project_map[manager]:
-                    manager_project_map[manager].append(project)
+                if p.project_manager not in manager_project_map:
+                    manager_project_map[p.project_manager] = []
+                if p.project_name not in manager_project_map[p.project_manager]:
+                    manager_project_map[p.project_manager].append(p.project_name)
 
         # 获取所有部门名称
         departments = db.session.query(
@@ -69,8 +59,8 @@ def get_data_dict():
         ).all()
 
         return success_response(data={
-            'projects': [p[0] for p in projects if p[0]],
-            'managers': [m[0] for m in managers if m[0]],
+            'projects': [p for p in projects if p],
+            'managers': managers,
             'projectManagerMap': project_manager_map,  # 项目 -> 经理列表
             'managerProjectMap': manager_project_map,  # 经理 -> 项目列表
             'departments': [d[0] for d in departments if d[0]],
