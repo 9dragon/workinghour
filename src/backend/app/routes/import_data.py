@@ -13,7 +13,8 @@ from app.utils.response import success_response, error_response
 from app.utils.jwt_utils import auth_required
 from app.utils.helpers import (
     generate_batch_no, validate_excel_file, read_excel_data,
-    validate_work_hour_row, calculate_date_range
+    validate_work_hour_row, calculate_date_range,
+    get_role_by_dept
 )
 import os
 from datetime import datetime
@@ -456,7 +457,7 @@ def upload_file():
                 new_employee = Employee(
                     employee_name=user_name,
                     dept_name=dept_value,
-                    role='staff'  # 默认为 staff，后续可在员工管理中手动设置
+                    role=get_role_by_dept(dept_value)  # 根据部门自动判断角色
                 )
                 employees_to_create_dict[user_name] = new_employee
 

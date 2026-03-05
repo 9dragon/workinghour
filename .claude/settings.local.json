@@ -44,7 +44,12 @@
       "Bash(ping:*)",
       "Bash(pwsh:*)",
       "Bash(powershell:*)",
-      "Bash(sqlite3:*)"
+      "Bash(sqlite3:*)",
+      "Bash(sed:*)",
+      "Bash(for file in EmployeeManagement.vue ProjectManagement.vue BudgetManagement.vue)",
+      "Bash(do echo \"=== $file ===\")",
+      "Read(//d/work/projects/workinghour/src/frontend/src/views/**)",
+      "Bash(done)"
     ]
   }
 }

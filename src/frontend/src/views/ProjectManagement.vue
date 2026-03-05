@@ -9,49 +9,75 @@
       </template>
 
       <!-- 说明区域 -->
-      <el-alert
-        type="info"
-        :closable="false"
-        show-icon
-        style="margin-bottom: 20px"
-      >
-        <template #title>
-          <strong>项目管理说明</strong>
-        </template>
-        <div style="margin-top: 8px; line-height: 1.6;">
-          <p><strong>项目识别规则：</strong></p>
-          <ul style="margin: 8px 0; padding-left: 20px;">
-            <li><strong>D 开头</strong>：项目交付类（如：D4086）</li>
-            <li><strong>P 开头</strong>：产研项目类（如：P1234）</li>
-            <li><strong>其他</strong>：其他项目类</li>
-          </ul>
-          <p style="margin-top: 8px;"><strong>管理方式：</strong></p>
-          <p style="margin-left: 20px;">
-            项目信息独立管理，支持手动创建或从工时数据中自动提取。项目经理信息可与工时记录关联。
-          </p>
-        </div>
-      </el-alert>
+      <el-collapse style="margin-bottom: 12px">
+        <el-collapse-item name="1">
+          <template #title>
+            <strong>📖 项目管理说明</strong>
+          </template>
+          <div class="collapse-content" style="line-height: 1.6;">
+            <p><strong>项目识别规则：</strong></p>
+            <ul style="margin: 8px 0; padding-left: 20px;">
+              <li><strong>D 开头</strong>：项目交付类（如：D4086）</li>
+              <li><strong>P 开头</strong>：产研项目类（如：P1234）</li>
+              <li><strong>其他</strong>：其他项目类</li>
+            </ul>
+            <p style="margin-top: 8px;"><strong>管理方式：</strong></p>
+            <p style="margin-left: 20px;">
+              项目信息独立管理，支持手动创建或从工时数据中自动提取。项目经理信息可与工时记录关联。
+            </p>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+
+      <!-- 筛选查询区域 -->
+      <el-form :model="filterForm" inline class="filter-form">
+        <el-form-item label="项目代码/名称">
+          <el-input
+            v-model="filterForm.searchKeyword"
+            placeholder="请输入项目代码或名称"
+            clearable
+            style="width: 200px"
+          />
+        </el-form-item>
+
+        <el-form-item label="项目类型">
+          <el-select
+            v-model="filterForm.projectType"
+            placeholder="请选择类型"
+            clearable
+            style="width: 150px"
+          >
+            <el-option label="项目交付" value="delivery" />
+            <el-option label="产研项目" value="research" />
+            <el-option label="其他项目" value="other" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="状态">
+          <el-select
+            v-model="filterForm.statusFilter"
+            placeholder="请选择状态"
+            clearable
+            style="width: 150px"
+          >
+            <el-option label="进行中" value="active" />
+            <el-option label="已完成" value="completed" />
+            <el-option label="已暂停" value="suspended" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" @click="handleQuery">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
 
       <!-- 工具栏 -->
       <div class="toolbar">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索项目代码或名称"
-          style="width: 200px"
-          clearable
-          @input="handleSearch"
-        />
-        <el-select
-          v-model="statusFilter"
-          placeholder="筛选状态"
-          style="width: 150px"
-          clearable
-          @change="loadProjects"
-        >
-          <el-option label="进行中" value="active" />
-          <el-option label="已完成" value="completed" />
-          <el-option label="已暂停" value="suspended" />
-        </el-select>
+        <div style="flex: 1"></div>
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>
           添加项目
@@ -59,8 +85,8 @@
       </div>
 
       <!-- 项目列表 -->
-      <el-table :data="projectList" border stripe>
-        <el-table-column prop="projectCode" label="项目代码" width="120">
+      <el-table :data="projectList" border stripe style="width: 100%">
+        <el-table-column prop="projectCode" label="项目代码" min-width="120">
           <template #default="{ row }">
             <el-tag :type="getPrefixTagType(row.projectPrefix)" size="small">
               {{ row.projectPrefix }}
@@ -68,24 +94,24 @@
             <span style="margin-left: 4px;">{{ row.projectCode }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="projectName" label="项目名称" width="250" />
-        <el-table-column label="项目类型" width="120">
+        <el-table-column prop="projectName" label="项目名称" min-width="200" />
+        <el-table-column label="项目类型" min-width="110">
           <template #default="{ row }">
             <el-tag :type="getTypeTagType(row.projectType)">
               {{ row.projectTypeLabel }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="projectManager" label="项目经理" width="120" />
-        <el-table-column label="状态" width="100">
+        <el-table-column prop="projectManager" label="项目经理" min-width="110" />
+        <el-table-column label="状态" min-width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
               {{ row.statusLabel }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="170" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column prop="createdAt" label="创建时间" min-width="160" />
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleView(row)">详情</el-button>
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
@@ -185,6 +211,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { getProjects, getProjectDetail, createProject, updateProject, deleteProject } from '@/api'
 
 const projectList = ref([])
@@ -195,9 +222,11 @@ const pagination = reactive({
   total: 0
 })
 
-const searchKeyword = ref('')
-const typeFilter = ref('')
-const statusFilter = ref('')
+const filterForm = reactive({
+  searchKeyword: '',
+  projectType: '',
+  statusFilter: ''
+})
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('添加项目')
@@ -220,9 +249,9 @@ const loadProjects = async () => {
     const res = await getProjects({
       page: pagination.page,
       size: pagination.size,
-      projectCode: searchKeyword.value,
-      projectType: 'delivery',  // 只显示项目交付类，不显示产研项目
-      status: statusFilter.value
+      projectCode: filterForm.searchKeyword,
+      projectType: filterForm.projectType || 'delivery',
+      status: filterForm.statusFilter
     })
     projectList.value = res.data.list
     pagination.total = res.data.total
@@ -232,7 +261,15 @@ const loadProjects = async () => {
   }
 }
 
-const handleSearch = () => {
+const handleQuery = () => {
+  pagination.page = 1
+  loadProjects()
+}
+
+const handleReset = () => {
+  filterForm.searchKeyword = ''
+  filterForm.projectType = ''
+  filterForm.statusFilter = ''
   pagination.page = 1
   loadProjects()
 }
@@ -362,6 +399,11 @@ onMounted(() => {
 <style scoped>
 .project-management-page {
   padding: 20px;
+  width: 100%;
+}
+
+.project-management-page :deep(.el-card) {
+  width: 100%;
 }
 
 .card-header {
@@ -372,7 +414,14 @@ onMounted(() => {
   font-size: 16px;
 }
 
+.filter-form {
+  --el-form-item-margin-bottom: 8px;
+  margin-bottom: 8px;
+}
+
 .toolbar {
+  align-items: center;
+  min-height: 32px;
   margin-bottom: 20px;
   display: flex;
   gap: 10px;
@@ -382,5 +431,11 @@ onMounted(() => {
   margin: 0 0 15px 0;
   font-size: 14px;
   color: #606266;
+}
+
+.collapse-content {
+    padding: 8px 12px;
+  background-color: #fdf6ec;
+  border-radius: 4px;
 }
 </style>

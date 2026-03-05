@@ -4,71 +4,83 @@
       <template #header>
         <div class="card-header">
           <el-icon><User /></el-icon>
-          <span>员工部门管理</span>
+          <span>员工管理</span>
         </div>
       </template>
 
       <!-- 说明区域 -->
-      <el-alert
-        type="info"
-        :closable="false"
-        show-icon
-        style="margin-bottom: 20px"
-      >
-        <template #title>
-          <strong>员工管理说明</strong>
-        </template>
-        <div style="margin-top: 8px; line-height: 1.6;">
-          <p><strong>概念区分：</strong></p>
-          <ul style="margin: 8px 0; padding-left: 20px;">
-            <li><strong>员工</strong>：仅包含姓名和部门信息，用于 Excel 导入时自动补充缺失的部门数据</li>
-            <li><strong>用户</strong>：可以登录系统的账号，用于身份认证和权限管理（请前往"系统管理 → 用户管理"）</li>
-          </ul>
-          <p style="margin-top: 8px;"><strong>用途说明：</strong></p>
-          <p style="margin-left: 20px;">
-            当从钉钉导出的 Excel 文件中某些工时记录的"创建人部门"字段为空时，系统会自动根据员工姓名匹配并补充此页面维护的部门信息。
-          </p>
-          <p style="margin-top: 8px;"><strong>维护方式：</strong></p>
-          <p style="margin-left: 20px;">
-            由数据管理员手动维护，请确保员工姓名与钉钉导出文件中的姓名完全一致，部门信息准确无误。
-          </p>
-        </div>
-      </el-alert>
+      <el-collapse style="margin-bottom: 12px">
+        <el-collapse-item name="1">
+          <template #title>
+            <strong>📖 员工管理说明</strong>
+          </template>
+          <div class="collapse-content" style="line-height: 1.6;">
+            <p><strong>概念区分：</strong></p>
+            <ul style="margin: 8px 0; padding-left: 20px;">
+              <li><strong>员工</strong>：指工时填报中的员工，用于工时统计</li>
+              <li><strong>用户</strong>：可以登录系统的账号，用于身份认证和权限管理（请前往"系统管理 → 用户管理"）</li>
+            </ul>
+            <p style="margin-top: 8px;"><strong>维护方式：</strong></p>
+            <p style="margin-left: 20px;">
+              Excel数据导入时自动记录员工基本信息，管理员可以手动维护员工角色和工时分类匹配
+            </p>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+
+      <!-- 筛选查询区域 -->
+      <el-form :model="filterForm" inline class="filter-form">
+        <el-form-item label="姓名">
+          <el-input
+            v-model="filterForm.searchKeyword"
+            placeholder="请输入姓名"
+            clearable
+            style="width: 150px"
+          />
+        </el-form-item>
+
+        <el-form-item label="部门">
+          <el-select
+            v-model="filterForm.deptFilter"
+            placeholder="请选择部门"
+            clearable
+            filterable
+            style="width: 150px"
+          >
+            <el-option
+              v-for="dept in deptList"
+              :key="dept"
+              :label="dept"
+              :value="dept"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="角色">
+          <el-select
+            v-model="filterForm.roleFilter"
+            placeholder="请选择角色"
+            clearable
+            style="width: 150px"
+          >
+            <el-option label="项目管理" value="project_manager" />
+            <el-option label="数采实施" value="data_collection" />
+            <el-option label="软件实施" value="software_dev" />
+            <el-option label="普通员工" value="staff" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" @click="handleQuery">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
 
       <!-- 工具栏 -->
       <div class="toolbar">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索姓名"
-          style="width: 150px"
-          clearable
-        />
-        <el-select
-          v-model="deptFilter"
-          placeholder="筛选部门"
-          style="width: 150px"
-          clearable
-        >
-          <el-option
-            v-for="dept in deptList"
-            :key="dept"
-            :label="dept"
-            :value="dept"
-          />
-        </el-select>
-        <el-select
-          v-model="roleFilter"
-          placeholder="筛选角色"
-          style="width: 150px"
-          clearable
-        >
-          <el-option label="项目管理" value="project_manager" />
-          <el-option label="数采实施" value="data_collection" />
-          <el-option label="软件实施" value="software_dev" />
-          <el-option label="普通员工" value="staff" />
-        </el-select>
-        <el-button type="primary" @click="handleSearch">查询</el-button>
-        <el-button @click="handleReset">重置</el-button>
         <div style="flex: 1"></div>
         <el-button
           type="warning"
@@ -84,16 +96,16 @@
       </div>
 
       <!-- 用户列表 -->
-      <el-table :data="employeeList" border stripe @selection-change="handleSelectionChange">
+      <el-table :data="employeeList" border stripe style="width: 100%" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="employeeName" label="姓名" width="150" />
-        <el-table-column prop="deptName" label="部门" width="200">
+        <el-table-column prop="employeeName" label="姓名" min-width="120" />
+        <el-table-column prop="deptName" label="部门" min-width="150">
           <template #default="{ row }">
             <el-tag v-if="row.deptName">{{ row.deptName }}</el-tag>
             <el-tag v-else type="danger">未配置</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="角色" width="120">
+        <el-table-column label="角色" min-width="120">
           <template #default="{ row }">
             <el-tag v-if="row.role" :type="getRoleTagType(row.role)">
               {{ row.roleLabel || getRoleLabel(row.role) }}
@@ -101,7 +113,7 @@
             <el-tag v-else type="info">普通员工</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
@@ -167,7 +179,7 @@
         type="info"
         :closable="false"
         show-icon
-        style="margin-bottom: 20px"
+        style="margin-bottom: 12px"
       >
         已选择 {{ selectedEmployees.length }} 位员工
       </el-alert>
@@ -192,6 +204,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { getEmployees, createEmployee, updateEmployee, deleteEmployee, updateEmployeeRole, batchUpdateEmployeeRoles } from '@/api'
 
 const employeeList = ref([])
@@ -203,9 +216,11 @@ const pagination = reactive({
   total: 0
 })
 
-const searchKeyword = ref('')
-const roleFilter = ref('')
-const deptFilter = ref('')
+const filterForm = reactive({
+  searchKeyword: '',
+  roleFilter: '',
+  deptFilter: ''
+})
 const selectedEmployees = ref([])
 
 const dialogVisible = ref(false)
@@ -229,9 +244,9 @@ const loadUsers = async () => {
     const res = await getEmployees({
       page: pagination.page,
       size: pagination.size,
-      keyword: searchKeyword.value,
-      role: roleFilter.value,
-      dept: deptFilter.value
+      keyword: filterForm.searchKeyword,
+      role: filterForm.roleFilter,
+      dept: filterForm.deptFilter
     })
     employeeList.value = res.data.list
     pagination.total = res.data.total
@@ -254,16 +269,16 @@ const handleSelectionChange = (selection) => {
   selectedEmployees.value = selection
 }
 
-const handleSearch = () => {
+const handleQuery = () => {
   pagination.page = 1
   selectedEmployees.value = []
   loadUsers()
 }
 
 const handleReset = () => {
-  searchKeyword.value = ''
-  deptFilter.value = ''
-  roleFilter.value = ''
+  filterForm.searchKeyword = ''
+  filterForm.deptFilter = ''
+  filterForm.roleFilter = ''
   pagination.page = 1
   selectedEmployees.value = []
   loadUsers()
@@ -396,6 +411,11 @@ onMounted(() => {
 <style scoped>
 .user-management-page {
   padding: 20px;
+  width: 100%;
+}
+
+.user-management-page :deep(.el-card) {
+  width: 100%;
 }
 
 .card-header {
@@ -406,11 +426,23 @@ onMounted(() => {
   font-size: 16px;
 }
 
+.filter-form {
+  --el-form-item-margin-bottom: 8px;
+  margin-bottom: 8px;
+}
+
 .toolbar {
+  align-items: center;
+  min-height: 32px;
   margin-bottom: 20px;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  align-items: center;
+}
+
+.collapse-content {
+    padding: 8px 12px;
+  background-color: #fdf6ec;
+  border-radius: 4px;
 }
 </style>

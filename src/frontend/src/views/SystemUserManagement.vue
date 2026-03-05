@@ -9,41 +9,76 @@
       </template>
 
       <!-- 说明区域 -->
-      <el-alert
-        type="warning"
-        :closable="false"
-        show-icon
-        style="margin-bottom: 20px"
-      >
-        <template #title>
-          <strong>用户管理说明</strong>
-        </template>
-        <div style="margin-top: 8px; line-height: 1.6;">
-          <p><strong>概念区分：</strong></p>
-          <ul style="margin: 8px 0; padding-left: 20px;">
-            <li><strong>用户</strong>：可以登录系统的账号，包含用户名、密码、角色、邮箱等认证信息</li>
-            <li><strong>员工</strong>：仅包含姓名和部门信息，用于Excel导入时补充部门数据（请前往"数据管理 → 员工管理"）</li>
-          </ul>
-          <p style="margin-top: 8px;"><strong>用途说明：</strong></p>
-          <p style="margin-left: 20px;">
-            此页面用于管理系统登录用户，包括创建用户账号、分配角色（管理员/普通用户）、重置密码等操作。
-          </p>
-          <p style="margin-top: 8px;"><strong>注意事项：</strong></p>
-          <p style="margin-left: 20px;">
-            请谨慎操作，错误的用户配置可能导致系统无法正常访问。建议只由系统管理员进行此页面的维护工作。
-          </p>
-        </div>
-      </el-alert>
+      <el-collapse style="margin-bottom: 12px">
+        <el-collapse-item name="1">
+          <template #title>
+            <strong>📖 用户管理说明</strong>
+          </template>
+          <div class="collapse-content" style="line-height: 1.6;">
+            <p><strong>概念区分：</strong></p>
+            <ul style="margin: 8px 0; padding-left: 20px;">
+              <li><strong>用户</strong>：可以登录系统的账号，包含用户名、密码、角色、邮箱等认证信息</li>
+              <li><strong>员工</strong>：仅包含姓名和部门信息，用于Excel导入时补充部门数据（请前往"数据管理 → 员工管理"）</li>
+            </ul>
+            <p style="margin-top: 8px;"><strong>用途说明：</strong></p>
+            <p style="margin-left: 20px;">
+              此页面用于管理系统登录用户，包括创建用户账号、分配角色（管理员/普通用户）、重置密码等操作。
+            </p>
+            <p style="margin-top: 8px;"><strong>注意事项：</strong></p>
+            <p style="margin-left: 20px;">
+              请谨慎操作，错误的用户配置可能导致系统无法正常访问。建议只由系统管理员进行此页面的维护工作。
+            </p>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+
+      <!-- 筛选查询区域 -->
+      <el-form :model="filterForm" inline class="filter-form">
+        <el-form-item label="用户名/邮箱">
+          <el-input
+            v-model="filterForm.searchKeyword"
+            placeholder="请输入用户名或邮箱"
+            clearable
+            style="width: 200px"
+          />
+        </el-form-item>
+
+        <el-form-item label="角色">
+          <el-select
+            v-model="filterForm.roleFilter"
+            placeholder="请选择角色"
+            clearable
+            style="width: 150px"
+          >
+            <el-option label="管理员" value="admin" />
+            <el-option label="普通用户" value="user" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="状态">
+          <el-select
+            v-model="filterForm.statusFilter"
+            placeholder="请选择状态"
+            clearable
+            style="width: 150px"
+          >
+            <el-option label="正常" value="active" />
+            <el-option label="锁定" value="locked" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" @click="handleQuery">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
 
       <!-- 工具栏 -->
       <div class="toolbar">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索用户名或邮箱"
-          style="width: 200px"
-          clearable
-          @input="handleSearch"
-        />
+        <div style="flex: 1"></div>
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>
           添加用户
@@ -138,6 +173,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 
 const userList = ref([])
 
@@ -147,7 +183,11 @@ const pagination = reactive({
   total: 0
 })
 
-const searchKeyword = ref('')
+const filterForm = reactive({
+  searchKeyword: '',
+  roleFilter: '',
+  statusFilter: ''
+})
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('添加用户')
@@ -171,7 +211,9 @@ const loadUsers = async () => {
     const res = await getSystemUsers({
       page: pagination.page,
       size: pagination.size,
-      keyword: searchKeyword.value
+      keyword: filterForm.searchKeyword,
+      role: filterForm.roleFilter,
+      status: filterForm.statusFilter
     })
     userList.value = res.data.list
     pagination.total = res.data.total
@@ -182,7 +224,15 @@ const loadUsers = async () => {
   }
 }
 
-const handleSearch = () => {
+const handleQuery = () => {
+  pagination.page = 1
+  loadUsers()
+}
+
+const handleReset = () => {
+  filterForm.searchKeyword = ''
+  filterForm.roleFilter = ''
+  filterForm.statusFilter = ''
   pagination.page = 1
   loadUsers()
 }
@@ -310,6 +360,11 @@ onMounted(() => {
 <style scoped>
 .user-management-page {
   padding: 20px;
+  width: 100%;
+}
+
+.user-management-page :deep(.el-card) {
+  width: 100%;
 }
 
 .card-header {
@@ -320,9 +375,23 @@ onMounted(() => {
   font-size: 16px;
 }
 
+.filter-form {
+  --el-form-item-margin-bottom: 8px;
+  margin-bottom: 8px;
+}
+
 .toolbar {
+  align-items: center;
+  min-height: 32px;
   margin-bottom: 20px;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.collapse-content {
+  padding: 8px 12px;
+  background-color: #fdf6ec;
+  border-radius: 4px;
 }
 </style>

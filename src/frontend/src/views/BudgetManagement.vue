@@ -9,46 +9,67 @@
       </template>
 
       <!-- 说明区域 -->
-      <el-alert
-        type="info"
-        :closable="false"
-        show-icon
-        style="margin-bottom: 20px"
-      >
-        <template #title>
-          <strong>预算录入说明</strong>
-        </template>
-        <div style="margin-top: 8px; line-height: 1.6;">
-          <p>在此页面录入和管理项目工时预算。预算按项目、类型分别录入。</p>
-          <p style="margin-top: 8px;"><strong>重要提示：</strong></p>
-          <ul style="margin: 8px 0; padding-left: 20px;">
-            <li>同一项目、同一类型只能有一条预算记录</li>
-            <li>预算工时必须为非负数（单位：人天）</li>
-            <li>预算录入后可在"预算统计"页面查看执行情况</li>
-          </ul>
-        </div>
-      </el-alert>
+      <el-collapse style="margin-bottom: 12px">
+        <el-collapse-item name="1">
+          <template #title>
+            <strong>📖 预算录入说明</strong>
+          </template>
+          <div class="collapse-content" style="line-height: 1.6;">
+            <p>在此页面录入和管理项目工时预算。预算按项目、类型分别录入。</p>
+            <p style="margin-top: 8px;"><strong>重要提示：</strong></p>
+            <ul style="margin: 8px 0; padding-left: 20px;">
+              <li>同一项目、同一类型只能有一条预算记录</li>
+              <li>预算工时必须为非负数（单位：人天）</li>
+              <li>预算录入后可在"工时统计"页面查看执行情况</li>
+            </ul>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+
+      <!-- 筛选查询区域 -->
+      <el-form :model="filterForm" inline class="filter-form">
+        <el-form-item label="项目代码">
+          <el-select
+            v-model="filterForm.projectCode"
+            placeholder="请选择项目代码"
+            clearable
+            filterable
+            style="width: 200px"
+          >
+            <el-option
+              v-for="project in projectList"
+              :key="project.projectCode"
+              :label="`${project.projectCode} - ${project.projectName}`"
+              :value="project.projectCode"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="类型">
+          <el-select
+            v-model="filterForm.budgetType"
+            placeholder="请选择类型"
+            clearable
+            style="width: 150px"
+          >
+            <el-option label="项目管理" value="project_manager" />
+            <el-option label="数采实施" value="data_collection" />
+            <el-option label="软件实施" value="software_dev" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" @click="handleQuery">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
 
       <!-- 工具栏 -->
       <div class="toolbar">
-        <el-input
-          v-model="filters.projectCode"
-          placeholder="筛选项目代码"
-          style="width: 200px"
-          clearable
-          @input="loadBudgets"
-        />
-        <el-select
-          v-model="filters.budgetType"
-          placeholder="筛选类型"
-          style="width: 150px"
-          clearable
-          @change="loadBudgets"
-        >
-          <el-option label="项目管理" value="project_manager" />
-          <el-option label="数采实施" value="data_collection" />
-          <el-option label="软件实施" value="software_dev" />
-        </el-select>
+        <div style="flex: 1"></div>
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>
           添加预算
@@ -56,27 +77,27 @@
       </div>
 
       <!-- 预算列表 -->
-      <el-table :data="budgetList" border stripe>
-        <el-table-column prop="projectCode" label="项目代码" width="120" />
-        <el-table-column prop="projectName" label="项目名称" width="200" />
-        <el-table-column label="类型" width="120">
+      <el-table :data="budgetList" border stripe style="width: 100%">
+        <el-table-column prop="projectCode" label="项目代码" min-width="120" />
+        <el-table-column prop="projectName" label="项目名称" min-width="200" />
+        <el-table-column label="类型" min-width="120">
           <template #default="{ row }">
             <el-tag :type="getRoleTagType(row.budgetType)">
               {{ row.budgetTypeLabel }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="budgetHours" label="预算工时" width="120">
+        <el-table-column prop="budgetHours" label="预算工时" min-width="120">
           <template #default="{ row }">
             {{ row.budgetHours }} 人天
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180">
+        <el-table-column prop="createdAt" label="创建时间" min-width="170">
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
@@ -128,7 +149,7 @@
           <el-input-number
             v-model="formData.budgetHours"
             :min="0"
-            :precision="2"
+            :precision="0"
             :step="1"
             style="width: 100%"
           />
@@ -146,6 +167,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { getBudgets, createBudget, updateBudget, deleteBudget, getProjects } from '@/api'
 
 const budgetList = ref([])
@@ -157,7 +179,7 @@ const pagination = reactive({
   total: 0
 })
 
-const filters = reactive({
+const filterForm = reactive({
   projectCode: '',
   budgetType: ''
 })
@@ -178,8 +200,8 @@ const loadBudgets = async () => {
     const res = await getBudgets({
       page: pagination.page,
       size: pagination.size,
-      projectCode: filters.projectCode,
-      budgetType: filters.budgetType
+      projectCode: filterForm.projectCode,
+      budgetType: filterForm.budgetType
     })
     budgetList.value = res.data.list
     pagination.total = res.data.total
@@ -200,6 +222,18 @@ const loadProjects = async () => {
   } catch (error) {
     console.error('Failed to load projects:', error)
   }
+}
+
+const handleQuery = () => {
+  pagination.page = 1
+  loadBudgets()
+}
+
+const handleReset = () => {
+  filterForm.projectCode = ''
+  filterForm.budgetType = ''
+  pagination.page = 1
+  loadBudgets()
 }
 
 const handleAdd = () => {
@@ -297,6 +331,11 @@ onMounted(() => {
 <style scoped>
 .budget-management-page {
   padding: 20px;
+  width: 100%;
+}
+
+.budget-management-page :deep(.el-card) {
+  width: 100%;
 }
 
 .card-header {
@@ -307,10 +346,23 @@ onMounted(() => {
   font-size: 16px;
 }
 
+.filter-form {
+  --el-form-item-margin-bottom: 8px;
+  margin-bottom: 8px;
+}
+
 .toolbar {
+  align-items: center;
+  min-height: 32px;
   margin-bottom: 20px;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.collapse-content {
+    padding: 8px 12px;
+  background-color: #fdf6ec;
+  border-radius: 4px;
 }
 </style>

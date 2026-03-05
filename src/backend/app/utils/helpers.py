@@ -293,3 +293,52 @@ def calculate_workdays(start_date, end_date, workdays=[1, 2, 3, 4, 5], holidays=
     workdays_list.sort()
 
     return len(workdays_list)
+
+def get_role_by_dept(dept_name):
+    """
+    根据部门名称确定员工角色
+
+    参数:
+        dept_name: 部门名称（字符串）
+
+    返回:
+        str: 角色标识符
+        - 'project_manager': 项目管理部
+        - 'data_collection': 项目交付部、技术支持部
+        - 'software_dev': 产品设计组、开发组、前端开发小组、数据管理组、边缘计算小组
+        - 'staff': 其他部门（默认）
+
+    示例:
+        >>> get_role_by_dept('项目管理部')
+        'project_manager'
+        >>> get_role_by_dept('开发组')
+        'software_dev'
+        >>> get_role_by_dept('未知部门')
+        'staff'
+    """
+    if not dept_name:
+        return 'staff'
+
+    # 标准化部门名称：去除首尾空格
+    dept_normalized = dept_name.strip()
+
+    # 部门到角色的映射关系
+    dept_role_mapping = {
+        'project_manager': {'项目管理部'},
+        'data_collection': {'项目交付部', '技术支持部'},
+        'software_dev': {
+            '产品设计组',
+            '开发组',
+            '前端开发小组',
+            '数据管理组',
+            '边缘计算小组'
+        }
+    }
+
+    # 查找匹配的角色
+    for role, dept_set in dept_role_mapping.items():
+        if dept_normalized in dept_set:
+            return role
+
+    # 未匹配则返回默认角色
+    return 'staff'
