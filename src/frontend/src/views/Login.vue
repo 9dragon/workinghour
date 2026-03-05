@@ -48,6 +48,20 @@
           </el-button>
         </el-form-item>
       </el-form>
+
+      <el-divider>或</el-divider>
+
+      <el-button
+        size="large"
+        class="dingtalk-login-button"
+        :loading="loading"
+        @click="handleDingTalkLogin"
+      >
+        <svg class="dingtalk-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+          <path d="M819.2 238.933333c-17.066667-8.533333-38.4-8.533333-55.466667 0l-213.333333 123.733334-149.333333-85.333334c-17.066667-8.533333-38.4-8.533333-55.466667 0l-213.333333 123.733334v384l213.333333-123.733334 149.333333 85.333334c17.066667 8.533333 38.4 8.533333 55.466667 0l213.333333-123.733334v-384l-55.466666 29.866667z" fill="#0089FF"/>
+        </svg>
+        钉钉登录
+      </el-button>
     </div>
 
     <div class="login-footer">
@@ -57,12 +71,13 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { CircleClose } from '@element-plus/icons-vue'
 import { login } from '@/api'
 import { useUserStore } from '@/store'
+import { isDingTalkEnv, autoDingtalkLogin, getDingTalkConfig } from '@/utils/dingtalk'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -72,6 +87,7 @@ const loading = ref(false)
 const isError = ref(false)
 const showError = ref(false)
 const errorMessage = ref('')
+const isDingTalkEnvValue = ref(false)
 
 const loginForm = reactive({
   username: '',
@@ -133,6 +149,38 @@ const handleLogin = async () => {
     }
   })
 }
+
+const handleDingTalkLogin = async () => {
+  loading.value = true
+  try {
+    // 检测是否在钉钉环境
+    if (!isDingTalkEnv()) {
+      ElMessage.warning('请在钉钉客户端中打开')
+      loading.value = false
+      return
+    }
+
+    // 获取钉钉配置
+    const config = await getDingTalkConfig()
+
+    // 执行钉钉免登录
+    const res = await autoDingtalkLogin(config.corpId)
+    userStore.setToken(res.data.token)
+    userStore.setUserInfo(res.data.userInfo)
+    ElMessage.success('登录成功')
+    router.push('/')
+  } catch (error) {
+    console.error('钉钉登录失败:', error)
+    ElMessage.error(error.message || '钉钉登录失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 组件挂载时检测是否在钉钉环境
+onMounted(() => {
+  isDingTalkEnvValue.value = isDingTalkEnv()
+})
 </script>
 
 <style scoped>
@@ -200,6 +248,25 @@ const handleLogin = async () => {
   font-size: 16px;
 }
 
+.el-divider {
+  margin: 24px 0;
+}
+
+.dingtalk-login-button {
+  width: 100%;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.dingtalk-icon {
+  width: 20px;
+  height: 20px;
+}
+
 .login-footer {
   margin-top: 24px;
   text-align: center;
@@ -209,61 +276,6 @@ const handleLogin = async () => {
 
 .login-footer p {
   margin: 0;
-}
-
-/* 错误提示框样式 */
-.error-message-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  background-color: #fef0f0;
-  border: 1px solid #fde2e2;
-  border-radius: 4px;
-  color: #f56c6c;
-  animation: slideDown 0.3s ease;
-}
-
-.error-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.error-text {
-  font-size: 14px;
-  flex: 1;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 抖动动画 */
-.shake-animation {
-  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
-}
-
-@keyframes shake {
-  10%, 90% {
-    transform: translate3d(-1px, 0, 0);
-  }
-  20%, 80% {
-    transform: translate3d(2px, 0, 0);
-  }
-  30%, 50%, 70% {
-    transform: translate3d(-4px, 0, 0);
-  }
-  40%, 60% {
-    transform: translate3d(4px, 0, 0);
-  }
 }
 
 /* 错误提示框样式 */
