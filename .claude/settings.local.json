@@ -49,8 +49,7 @@
       "Bash(for file in EmployeeManagement.vue ProjectManagement.vue BudgetManagement.vue)",
       "Bash(do echo \"=== $file ===\")",
       "Read(//d/work/projects/workinghour/src/frontend/src/views/**)",
-      "Bash(done)",
-      "Bash(xargs grep:*)"
+      "Bash(done)"
     ]
   }
 }

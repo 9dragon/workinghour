@@ -1446,13 +1446,3 @@ export const deleteProject = (id) => {
   return request.delete(`/projects/${id}`)
 }
 
-
-// 钉钉免登录
-export const dingtalkLogin = (authCode) => {
-  return request.post('/auth/dingtalk/login', { authCode })
-}
-
-// 获取钉钉配置
-export const getDingTalkConfig = () => {
-  return request.get('/auth/dingtalk/config')
-}

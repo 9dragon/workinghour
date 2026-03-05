@@ -27,7 +27,6 @@ def create_app(config_class=Config):
 
     # 注册蓝图
     from .routes.auth import auth_bp
-    from .routes.auth_dingtalk import auth_dingtalk_bp
     from .routes.data import data_bp
     from .routes.import_data import import_bp
     from .routes.query import query_bp
@@ -40,7 +39,6 @@ def create_app(config_class=Config):
     from .routes.projects import projects_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
-    app.register_blueprint(auth_dingtalk_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(data_bp, url_prefix='/api/v1')
     app.register_blueprint(import_bp, url_prefix='/api/v1')
     app.register_blueprint(query_bp, url_prefix='/api/v1')

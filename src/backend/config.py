@@ -20,11 +20,6 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=8)
     JWT_ALGORITHM = 'HS256'
 
-    # 钉钉配置
-    DINGTALK_APP_KEY = os.environ.get('DINGTALK_APP_KEY') or ''
-    DINGTALK_APP_SECRET = os.environ.get('DINGTALK_APP_SECRET') or ''
-    DINGTALK_CORP_ID = os.environ.get('DINGTALK_CORP_ID') or ''
-
     # 文件上传配置
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or 'instance/uploads'
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB
