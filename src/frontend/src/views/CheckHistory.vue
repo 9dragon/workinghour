@@ -32,6 +32,14 @@
             查询
           </el-button>
           <el-button @click="handleReset">重置</el-button>
+          <el-button
+            v-if="selectedRows.length > 0"
+            type="danger"
+            @click="handleBatchDelete"
+          >
+            <el-icon><Delete /></el-icon>
+            批量删除 ({{ selectedRows.length }})
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -44,7 +52,9 @@
         stripe
         :default-sort="{ prop: 'checkTime', order: 'descending' }"
         height="calc(100vh - 340px)"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="55" fixed />
         <el-table-column prop="checkNo" label="核对批次号" width="200" fixed />
         <el-table-column label="核对类型" width="150" align="center">
           <template #default="{ row }">
@@ -87,10 +97,13 @@
             <div v-else class="text-gray">暂无数据</div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" align="center" fixed="right">
+        <el-table-column label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleViewDetail(row)">
               查看详情
+            </el-button>
+            <el-button type="danger" link size="small" @click="handleDelete(row)">
+              删除
             </el-button>
           </template>
         </el-table-column>
@@ -114,12 +127,14 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { getCheckHistory } from '@/api'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete } from '@element-plus/icons-vue'
+import { getCheckHistory, deleteCheckRecord, batchDeleteCheckRecords } from '@/api'
 
 const router = useRouter()
 const loading = ref(false)
 const tableData = ref([])
+const selectedRows = ref([])
 
 const filterForm = reactive({
   checkType: '',
@@ -180,6 +195,56 @@ const handleViewDetail = (row) => {
   router.push({
     name: 'CheckDetail',
     params: { checkNo: row.checkNo }
+  })
+}
+
+const handleSelectionChange = (selection) => {
+  selectedRows.value = selection
+}
+
+const handleDelete = (row) => {
+  ElMessageBox.confirm(
+    `确定要删除核对记录 ${row.checkNo} 吗？此操作不可恢复。`,
+    '删除确认',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      await deleteCheckRecord(row.checkNo)
+      ElMessage.success('删除成功')
+      loadData()
+    } catch (error) {
+      ElMessage.error(error.message || '删除失败')
+    }
+  }).catch(() => {
+    // 用户取消删除，不做处理
+  })
+}
+
+const handleBatchDelete = () => {
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedRows.value.length} 条核对记录吗？此操作不可恢复。`,
+    '批量删除确认',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      const checkNos = selectedRows.value.map(row => row.checkNo)
+      await batchDeleteCheckRecords(checkNos)
+      ElMessage.success('删除成功')
+      selectedRows.value = []
+      loadData()
+    } catch (error) {
+      ElMessage.error(error.message || '删除失败')
+    }
+  }).catch(() => {
+    // 用户取消删除，不做处理
   })
 }
 

@@ -138,6 +138,9 @@ def check_integrity_consistency():
                         if user not in missing_users:
                             missing_users.append(user)
 
+                        # 将工作日日期格式化为字符串列表
+                        missing_dates = [d.strftime('%Y-%m-%d') for d in workdays_in_gap]
+
                         details.append({
                             'deptName': dept,
                             'userName': user,
@@ -146,7 +149,8 @@ def check_integrity_consistency():
                             'gapStartDate': gap_start.strftime('%Y-%m-%d'),
                             'gapEndDate': gap_end.strftime('%Y-%m-%d'),
                             'affectedWorkdays': len(workdays_in_gap),
-                            'description': '未提交周报'
+                            'missingDates': missing_dates,
+                            'description': f'未提交周报（{len(workdays_in_gap)}个工作日：{", ".join(missing_dates)}）'
                         })
 
             # ========== 重复检查：检查工单时间范围是否有重叠 ==========
@@ -552,4 +556,64 @@ def get_check_detail(check_no):
         return success_response(data=data)
 
     except Exception as e:
+        return error_response(500, str(e), http_status=500)
+
+
+@check_bp.route('/check/record/<check_no>', methods=['DELETE'])
+def delete_check_record(check_no):
+    """删除核对记录"""
+    try:
+        record = CheckRecord.query.filter_by(check_no=check_no).first()
+
+        if not record:
+            return error_response(3001, '核对记录不存在', http_status=404)
+
+        # 如果有关联的报告文件，也需要删除
+        if record.report_path:
+            import os
+            if os.path.exists(record.report_path):
+                os.remove(record.report_path)
+
+        db.session.delete(record)
+        db.session.commit()
+
+        return success_response(message='删除成功')
+
+    except Exception as e:
+        db.session.rollback()
+        return error_response(500, str(e), http_status=500)
+
+
+@check_bp.route('/check/records/batch', methods=['DELETE'])
+def batch_delete_check_records():
+    """批量删除核对记录"""
+    try:
+        data = request.get_json()
+        check_nos = data.get('checkNos', [])
+
+        if not check_nos:
+            return error_response(4001, '请选择要删除的记录', http_status=400)
+
+        # 查询要删除的记录
+        records = CheckRecord.query.filter(CheckRecord.check_no.in_(check_nos)).all()
+
+        if not records:
+            return error_response(3001, '核对记录不存在', http_status=404)
+
+        # 删除关联的报告文件
+        import os
+        for record in records:
+            if record.report_path and os.path.exists(record.report_path):
+                os.remove(record.report_path)
+
+        # 批量删除记录
+        for record in records:
+            db.session.delete(record)
+
+        db.session.commit()
+
+        return success_response(message=f'成功删除 {len(records)} 条记录')
+
+    except Exception as e:
+        db.session.rollback()
         return error_response(500, str(e), http_status=500)

@@ -128,7 +128,22 @@
               <el-table-column prop="gapStartDate" label="开始日期" width="120" />
               <el-table-column prop="gapEndDate" label="结束日期" width="120" />
               <el-table-column prop="affectedWorkdays" label="影响工作日天数" width="140" align="center" />
-              <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
+              <el-table-column label="缺失工作日" min-width="250" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <template v-if="row.issueType === 'missing' && row.missingDates">
+                    <el-tag
+                      v-for="date in row.missingDates"
+                      :key="date"
+                      size="small"
+                      style="margin-right: 4px; margin-bottom: 4px;"
+                    >
+                      {{ date }}
+                    </el-tag>
+                  </template>
+                  <span v-else class="text-gray">-</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="description" label="说明" min-width="150" show-overflow-tooltip />
             </template>
 
             <!-- 工作时长检查列 -->

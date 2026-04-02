@@ -668,6 +668,30 @@ export const downloadCheckReport = (checkNo) => {
   })
 }
 
+// 删除核对记录
+export const deleteCheckRecord = (checkNo) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '删除成功',
+      data: null
+    })
+  }
+  return request.delete(`/check/record/${checkNo}`)
+}
+
+// 批量删除核对记录
+export const batchDeleteCheckRecords = (checkNos) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: `成功删除 ${checkNos.length} 条记录`,
+      data: null
+    })
+  }
+  return request.delete('/check/records/batch', { data: { checkNos } })
+}
+
 // 获取数据字典（项目名称、部门名称等）
 export const getDataDict = () => {
   if (MOCK_MODE) {
