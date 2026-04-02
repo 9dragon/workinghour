@@ -6,6 +6,7 @@ from app.models.db import db
 from app.models.work_hour_data import WorkHourData
 from app.models.check_record import CheckRecord
 from app.models.sys_config import SysConfig
+from app.models.holiday import Holiday
 from app.utils.response import success_response, error_response
 from app.utils.helpers import calculate_date_range, get_workdays_in_range, generate_batch_no
 from sqlalchemy import func, case, and_, or_
@@ -47,7 +48,25 @@ def check_integrity_consistency():
                 start = datetime.now().date()
                 end = datetime.now().date()
 
-        workdays_list = get_workdays_in_range(start, end, workdays)
+        # 获取核对时间范围内的节假日数据
+        holiday_records = db.session.query(
+            Holiday.holiday_date,
+            Holiday.is_workday
+        ).filter(
+            Holiday.holiday_date >= start,
+            Holiday.holiday_date <= end
+        ).all()
+
+        # 分离非工作日节假日和调休工作日
+        non_workdays = [h.holiday_date for h in holiday_records if not h.is_workday]
+        extra_workdays = [h.holiday_date for h in holiday_records if h.is_workday]
+
+        workdays_list = get_workdays_in_range(start, end, workdays, non_workdays)
+        # 加上调休工作日
+        for wd in extra_workdays:
+            if wd not in workdays_list:
+                workdays_list.append(wd)
+        workdays_list.sort()
 
         # 1. 获取所有需要检查的用户列表
         user_query = db.session.query(
@@ -107,7 +126,12 @@ def check_integrity_consistency():
                     gap_end = next_start - timedelta(days=1)
 
                     # 计算空隙期间的工作日天数
-                    workdays_in_gap = get_workdays_in_range(gap_start, gap_end, workdays)
+                    workdays_in_gap = get_workdays_in_range(gap_start, gap_end, workdays, non_workdays)
+                    # 加上调休工作日
+                    for wd in extra_workdays:
+                        if gap_start <= wd <= gap_end and wd not in workdays_in_gap:
+                            workdays_in_gap.append(wd)
+                    workdays_in_gap.sort()
 
                     if len(workdays_in_gap) > 0:
                         total_missing_days += len(workdays_in_gap)
@@ -143,7 +167,12 @@ def check_integrity_consistency():
                         overlap_end = min(order_a.end_time, order_b.end_time)
 
                         # 计算重叠期间的工作日天数
-                        workdays_in_overlap = get_workdays_in_range(overlap_start, overlap_end, workdays)
+                        workdays_in_overlap = get_workdays_in_range(overlap_start, overlap_end, workdays, non_workdays)
+                        # 加上调休工作日
+                        for wd in extra_workdays:
+                            if overlap_start <= wd <= overlap_end and wd not in workdays_in_overlap:
+                                workdays_in_overlap.append(wd)
+                        workdays_in_overlap.sort()
 
                         if len(workdays_in_overlap) > 0:
                             gap_start_str = overlap_start.strftime('%Y-%m-%d')
@@ -290,6 +319,17 @@ def check_work_hours_consistency():
             WorkHourData.end_time
         ).all()
 
+        # 获取所有涉及时间范围内的节假日数据（一次性查询，避免N+1问题）
+        all_holiday_records = []
+        if start is not None and end is not None:
+            all_holiday_records = db.session.query(
+                Holiday.holiday_date,
+                Holiday.is_workday
+            ).filter(
+                Holiday.holiday_date >= start,
+                Holiday.holiday_date <= end
+            ).all()
+
         # 计算每个工单的应工作时长（考虑法定工作日）
         details = []
         total_serials = 0
@@ -314,7 +354,17 @@ def check_work_hours_consistency():
         for serial_no, user, start_time, end_time, pd_hours, pr_hours, ps_hours, di_hours, total_wh, leave_h in serial_stats:
             # 计算该工单时间范围内的法定工作日数
             actual_days = (end_time - start_time).days + 1
-            workdays_in_range = get_workdays_in_range(start_time, end_time, [1, 2, 3, 4, 5])
+
+            # 过滤出该工单时间范围内的节假日数据
+            non_workdays = [h.holiday_date for h in all_holiday_records if not h.is_workday and start_time <= h.holiday_date <= end_time]
+            extra_workdays = [h.holiday_date for h in all_holiday_records if h.is_workday and start_time <= h.holiday_date <= end_time]
+
+            workdays_in_range = get_workdays_in_range(start_time, end_time, [1, 2, 3, 4, 5], non_workdays)
+            # 加上调休工作日
+            for wd in extra_workdays:
+                if wd not in workdays_in_range:
+                    workdays_in_range.append(wd)
+            workdays_in_range.sort()
             # 从配置中读取标准工作时长
             standard_hours_config = SysConfig.query.filter_by(config_key='check.standard_hours').first()
             standard_hours = int(standard_hours_config.config_value) if standard_hours_config else 8
