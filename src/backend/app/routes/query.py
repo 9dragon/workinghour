@@ -42,7 +42,7 @@ def query_by_project():
 
         if start_date and end_date:
             # 验证日期范围
-            is_valid, error_msg, _ = calculate_date_range(start_date, end_date, max_days=90)
+            is_valid, error_msg, *_ = calculate_date_range(start_date, end_date)
             if not is_valid:
                 return error_response(4001, error_msg), 400
 
@@ -123,7 +123,7 @@ def query_by_organization():
 
         if start_date and end_date:
             # 验证日期范围
-            is_valid, error_msg, _ = calculate_date_range(start_date, end_date, max_days=90)
+            is_valid, error_msg, *_ = calculate_date_range(start_date, end_date)
             if not is_valid:
                 return error_response(4001, error_msg), 400
 
