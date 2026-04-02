@@ -199,8 +199,8 @@
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleQuery"
-          @current-change="handleQuery"
+          @size-change="handleSizeChange"
+          @current-change="loadHolidays"
         />
       </div>
     </el-card>
@@ -454,6 +454,12 @@ const handleQuery = () => {
   pagination.page = 1
   loadHolidays()
   loadSummary()
+}
+
+// 每页大小变化
+const handleSizeChange = () => {
+  pagination.page = 1
+  loadHolidays()
 }
 
 // 重置按钮点击

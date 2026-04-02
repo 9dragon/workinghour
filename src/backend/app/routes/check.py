@@ -126,6 +126,9 @@ def check_integrity_consistency():
                         })
 
             # ========== 重复检查：检查工单时间范围是否有重叠 ==========
+            # 使用集合跟踪已记录的重叠期间，避免同一期间重复统计
+            recorded_periods = set()  # 格式: (user, gap_start_str, gap_end_str)
+
             for i in range(len(user_orders)):
                 for j in range(i + 1, len(user_orders)):
                     order_a = user_orders[i]
@@ -143,20 +146,27 @@ def check_integrity_consistency():
                         workdays_in_overlap = get_workdays_in_range(overlap_start, overlap_end, workdays)
 
                         if len(workdays_in_overlap) > 0:
-                            total_duplicate_days += len(workdays_in_overlap)
-                            if user not in duplicate_users:
-                                duplicate_users.append(user)
+                            gap_start_str = overlap_start.strftime('%Y-%m-%d')
+                            gap_end_str = overlap_end.strftime('%Y-%m-%d')
+                            period_key = (user, gap_start_str, gap_end_str)
 
-                            details.append({
-                                'deptName': dept,
-                                'userName': user,
-                                'issueType': 'duplicate',
-                                'serialNo': f'{order_a.serial_no},{order_b.serial_no}',
-                                'gapStartDate': overlap_start.strftime('%Y-%m-%d'),
-                                'gapEndDate': overlap_end.strftime('%Y-%m-%d'),
-                                'affectedWorkdays': len(workdays_in_overlap),
-                                'description': f'与序号{order_b.serial_no}时间重叠'
-                            })
+                            # 检查是否已记录过该重叠期间
+                            if period_key not in recorded_periods:
+                                recorded_periods.add(period_key)
+                                total_duplicate_days += len(workdays_in_overlap)
+                                if user not in duplicate_users:
+                                    duplicate_users.append(user)
+
+                                details.append({
+                                    'deptName': dept,
+                                    'userName': user,
+                                    'issueType': 'duplicate',
+                                    'serialNo': f'{order_a.serial_no},{order_b.serial_no}',
+                                    'gapStartDate': gap_start_str,
+                                    'gapEndDate': gap_end_str,
+                                    'affectedWorkdays': len(workdays_in_overlap),
+                                    'description': f'与序号{order_b.serial_no}时间重叠'
+                                })
 
         # 计算完整性百分比
         total_users = len(user_list)
