@@ -134,7 +134,7 @@
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="userName" label="姓名" width="90" />
         <el-table-column prop="deptName" label="部门" width="130" />
-        <el-table-column prop="projectName" label="项目名称" width="280" show-overflow-tooltip>
+        <el-table-column prop="projectName" label="项目名称" width="380" show-overflow-tooltip>
           <template #default="{ row }">
             <div style="display: flex; align-items: center; gap: 6px;">
               <el-tag v-if="isDPProject(row.projectName)" :type="getProjectTagType(row.projectName)" size="small">

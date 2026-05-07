@@ -132,7 +132,7 @@
         <el-table-column prop="userName" label="姓名" width="90" />
         <el-table-column prop="startTime" label="开始时间" width="130" />
         <el-table-column prop="endTime" label="结束时间" width="130" />
-        <el-table-column prop="projectName" label="项目名称" width="250" show-overflow-tooltip />
+        <el-table-column prop="projectName" label="项目名称" width="380" show-overflow-tooltip />
         <el-table-column prop="projectManager" label="项目经理" width="90" />
         <el-table-column prop="workHours" label="工作时长" width="90" align="right">
           <template #default="{ row }">

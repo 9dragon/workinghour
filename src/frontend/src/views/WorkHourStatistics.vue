@@ -99,7 +99,7 @@
               {{ row.budgetHours }} 人天
             </template>
           </el-table-column>
-          <el-table-column prop="actualHours" label="实际工时（含加班）" width="140">
+          <el-table-column prop="actualHours" label="实际工时（含加班）" width="160">
             <template #default="{ row }">
               {{ row.actualHours }} 人天
             </template>
