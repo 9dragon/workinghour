@@ -46,8 +46,8 @@ def query_by_project():
             if not is_valid:
                 return error_response(4001, error_msg), 400
 
-            start = datetime.strptime(start_date, '%Y-%m-%d')
-            end = datetime.strptime(end_date, '%Y-%m-%d')
+            start = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end = datetime.strptime(end_date, '%Y-%m-%d').date()
             # 完全包含逻辑：工时记录的开始时间和结束时间都必须在查询范围内
             query = query.filter(WorkHourData.start_time >= start, WorkHourData.end_time <= end)
 
@@ -127,8 +127,8 @@ def query_by_organization():
             if not is_valid:
                 return error_response(4001, error_msg), 400
 
-            start = datetime.strptime(start_date, '%Y-%m-%d')
-            end = datetime.strptime(end_date, '%Y-%m-%d')
+            start = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end = datetime.strptime(end_date, '%Y-%m-%d').date()
             # 完全包含逻辑：工时记录的开始时间和结束时间都必须在查询范围内
             query = query.filter(WorkHourData.start_time >= start, WorkHourData.end_time <= end)
 
@@ -203,8 +203,8 @@ def export_query_result():
 
         # 日期过滤
         if filters.get('startDate') and filters.get('endDate'):
-            start = datetime.strptime(filters['startDate'], '%Y-%m-%d')
-            end = datetime.strptime(filters['endDate'], '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            start = datetime.strptime(filters['startDate'], '%Y-%m-%d').date()
+            end = datetime.strptime(filters['endDate'], '%Y-%m-%d').date()
             query = query.filter(WorkHourData.start_time >= start, WorkHourData.start_time <= end)
 
         # 获取所有结果
