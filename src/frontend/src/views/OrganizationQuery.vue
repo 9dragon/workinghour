@@ -34,6 +34,22 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="项目名称">
+          <el-select
+            v-model="filterForm.projectName"
+            placeholder="请选择项目"
+            clearable
+            filterable
+            style="width: 200px"
+          >
+            <el-option
+              v-for="item in projectList"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <template #label>
             <span>时间范围</span>
@@ -116,7 +132,7 @@
         <el-table-column prop="userName" label="姓名" width="90" />
         <el-table-column prop="startTime" label="开始时间" width="130" />
         <el-table-column prop="endTime" label="结束时间" width="130" />
-        <el-table-column prop="projectName" label="项目名称" width="150" show-overflow-tooltip />
+        <el-table-column prop="projectName" label="项目名称" width="250" show-overflow-tooltip />
         <el-table-column prop="projectManager" label="项目经理" width="90" />
         <el-table-column prop="workHours" label="工作时长" width="90" align="right">
           <template #default="{ row }">
@@ -128,7 +144,7 @@
             <span>{{ row.overtimeHours?.toFixed(1) || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="workContent" label="工作内容" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="workContent" label="工作内容" min-width="80" show-overflow-tooltip />
       </el-table>
 
       <div class="pagination-wrapper">
@@ -156,10 +172,12 @@ const tableData = ref([])
 const summaryData = ref(null)
 const deptList = ref([])
 const userList = ref([])
+const projectList = ref([])
 
 const filterForm = reactive({
   deptName: '',
-  userName: ''
+  userName: '',
+  projectName: ''
 })
 
 const dateRange = ref([])
@@ -175,6 +193,7 @@ const loadDict = async () => {
     const res = await getDataDict()
     deptList.value = res.data.departments || []
     userList.value = res.data.users || []
+    projectList.value = res.data.workProjects || []
   } catch (error) {
     console.error('加载数据字典失败:', error)
   }
@@ -188,6 +207,7 @@ const loadData = async () => {
       size: pagination.size,
       deptName: filterForm.deptName,
       userName: filterForm.userName,
+      projectName: filterForm.projectName,
       startDate: dateRange.value?.[0],
       endDate: dateRange.value?.[1]
     }
@@ -210,6 +230,7 @@ const handleQuery = () => {
 const handleReset = () => {
   filterForm.deptName = ''
   filterForm.userName = ''
+  filterForm.projectName = ''
   dateRange.value = []
   pagination.page = 1
   loadData()

@@ -21,6 +21,7 @@ def query_by_project():
         # 获取查询参数
         project_name = request.args.get('projectName', '').strip()
         project_manager = request.args.get('projectManager', '').strip()
+        user_name = request.args.get('userName', '').strip()
         start_date = request.args.get('startDate', '').strip()
         end_date = request.args.get('endDate', '').strip()
         page = int(request.args.get('page', 1))
@@ -39,6 +40,9 @@ def query_by_project():
 
         if project_manager:
             query = query.filter(WorkHourData.project_manager.like(f'%{project_manager}%'))
+
+        if user_name:
+            query = query.filter(WorkHourData.user_name.like(f'%{user_name}%'))
 
         if start_date and end_date:
             # 验证日期范围
@@ -105,6 +109,7 @@ def query_by_organization():
         # 获取查询参数
         dept_name = request.args.get('deptName', '').strip()
         user_name = request.args.get('userName', '').strip()
+        project_name = request.args.get('projectName', '').strip()
         start_date = request.args.get('startDate', '').strip()
         end_date = request.args.get('endDate', '').strip()
         page = int(request.args.get('page', 1))
@@ -120,6 +125,9 @@ def query_by_organization():
 
         if user_name:
             query = query.filter(WorkHourData.user_name.like(f'%{user_name}%'))
+
+        if project_name:
+            query = query.filter(WorkHourData.project_name.like(f'%{project_name}%'))
 
         if start_date and end_date:
             # 验证日期范围
@@ -195,11 +203,15 @@ def export_query_result():
                 query = query.filter(WorkHourData.project_name.like(f"%{filters['projectName']}%"))
             if filters.get('projectManager'):
                 query = query.filter(WorkHourData.project_manager.like(f"%{filters['projectManager']}%"))
+            if filters.get('userName'):
+                query = query.filter(WorkHourData.user_name.like(f"%{filters['userName']}%"))
         else:  # organization
             if filters.get('deptName'):
                 query = query.filter(WorkHourData.dept_name.like(f"%{filters['deptName']}%"))
             if filters.get('userName'):
                 query = query.filter(WorkHourData.user_name.like(f"%{filters['userName']}%"))
+            if filters.get('projectName'):
+                query = query.filter(WorkHourData.project_name.like(f"%{filters['projectName']}%"))
 
         # 日期过滤
         if filters.get('startDate') and filters.get('endDate'):

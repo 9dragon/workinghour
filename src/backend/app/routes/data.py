@@ -58,13 +58,22 @@ def get_data_dict():
             WorkHourData.user_name.isnot(None)
         ).all()
 
+        # 获取工时数据表中的项目名称（用于组织维度查询筛选）
+        work_projects = db.session.query(
+            WorkHourData.project_name
+        ).distinct().filter(
+            WorkHourData.project_name.isnot(None),
+            WorkHourData.project_name != ''
+        ).all()
+
         return success_response(data={
             'projects': [p for p in projects if p],
             'managers': managers,
             'projectManagerMap': project_manager_map,  # 项目 -> 经理列表
             'managerProjectMap': manager_project_map,  # 经理 -> 项目列表
             'departments': [d[0] for d in departments if d[0]],
-            'users': [u[0] for u in users if u[0]]  # 用户名列表
+            'users': [u[0] for u in users if u[0]],  # 用户名列表
+            'workProjects': [p[0] for p in work_projects if p[0]]  # 工时数据表中的项目名称
         })
 
     except Exception as e:

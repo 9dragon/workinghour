@@ -36,6 +36,22 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="姓名">
+          <el-select
+            v-model="filterForm.userName"
+            placeholder="请选择人员"
+            clearable
+            filterable
+            style="width: 150px"
+          >
+            <el-option
+              v-for="item in userList"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <template #label>
             <span>时间范围</span>
@@ -118,7 +134,7 @@
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="userName" label="姓名" width="90" />
         <el-table-column prop="deptName" label="部门" width="130" />
-        <el-table-column prop="projectName" label="项目名称" width="200" show-overflow-tooltip>
+        <el-table-column prop="projectName" label="项目名称" width="280" show-overflow-tooltip>
           <template #default="{ row }">
             <div style="display: flex; align-items: center; gap: 6px;">
               <el-tag v-if="isDPProject(row.projectName)" :type="getProjectTagType(row.projectName)" size="small">
@@ -141,7 +157,7 @@
             <span>{{ row.overtimeHours?.toFixed(1) || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="workContent" label="工作内容" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="workContent" label="工作内容" min-width="80" show-overflow-tooltip />
       </el-table>
 
       <div class="pagination-wrapper">
@@ -169,6 +185,7 @@ const tableData = ref([])
 const summaryData = ref(null)
 const projectList = ref([])
 const managerList = ref([])
+const userList = ref([])
 
 // 映射关系
 const projectManagerMap = ref({})  // 项目 -> 经理列表
@@ -176,7 +193,8 @@ const managerProjectMap = ref({})  // 经理 -> 项目列表
 
 const filterForm = reactive({
   projectName: '',
-  projectManager: ''
+  projectManager: '',
+  userName: ''
 })
 
 const dateRange = ref([])
@@ -208,6 +226,7 @@ const loadDict = async () => {
     const res = await getDataDict()
     projectList.value = res.data.projects || []
     managerList.value = res.data.managers || []
+    userList.value = res.data.users || []
     projectManagerMap.value = res.data.projectManagerMap || {}
     managerProjectMap.value = res.data.managerProjectMap || {}
   } catch (error) {
@@ -233,6 +252,7 @@ const loadData = async () => {
       size: pagination.size,
       projectName: filterForm.projectName,
       projectManager: filterForm.projectManager,
+      userName: filterForm.userName,
       startDate: dateRange.value?.[0],
       endDate: dateRange.value?.[1]
     }
@@ -255,6 +275,7 @@ const handleQuery = () => {
 const handleReset = () => {
   filterForm.projectName = ''
   filterForm.projectManager = ''
+  filterForm.userName = ''
   dateRange.value = []
   pagination.page = 1
   loadData()
