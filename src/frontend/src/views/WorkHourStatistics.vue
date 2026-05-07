@@ -26,7 +26,7 @@
 
       <!-- 汇总卡片 -->
       <el-row :gutter="20" class="summary-cards">
-        <el-col :span="8">
+        <el-col :span="6">
           <el-card shadow="hover">
             <div class="summary-card">
               <div class="summary-icon" style="background: #ecf5ff; color: #409EFF">
@@ -39,20 +39,33 @@
             </div>
           </el-card>
         </el-col>
-        <el-col :span="8">
+        <el-col :span="6">
           <el-card shadow="hover">
             <div class="summary-card">
               <div class="summary-icon" style="background: #f0f9ff; color: #67C23A">
                 <el-icon :size="32"><Clock /></el-icon>
               </div>
               <div class="summary-content">
-                <div class="summary-label">实际工时总计</div>
+                <div class="summary-label">实际工时总计（含加班）</div>
                 <div class="summary-value">{{ summary.totalActualHours }} 人天</div>
               </div>
             </div>
           </el-card>
         </el-col>
-        <el-col :span="8">
+        <el-col :span="6">
+          <el-card shadow="hover">
+            <div class="summary-card">
+              <div class="summary-icon" style="background: #fdf6ec; color: #E6A23C">
+                <el-icon :size="32"><Clock /></el-icon>
+              </div>
+              <div class="summary-content">
+                <div class="summary-label">加班工时</div>
+                <div class="summary-value">{{ summary.totalOvertimeHours }} 人天</div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
           <el-card shadow="hover">
             <div class="summary-card">
               <div class="summary-icon" :style="getCompletionRateIconStyle()">
@@ -86,9 +99,14 @@
               {{ row.budgetHours }} 人天
             </template>
           </el-table-column>
-          <el-table-column prop="actualHours" label="实际工时" width="120">
+          <el-table-column prop="actualHours" label="实际工时（含加班）" width="140">
             <template #default="{ row }">
               {{ row.actualHours }} 人天
+            </template>
+          </el-table-column>
+          <el-table-column prop="overtimeHours" label="加班工时" width="120">
+            <template #default="{ row }">
+              {{ row.overtimeHours }} 人天
             </template>
           </el-table-column>
           <el-table-column label="预算使用率" width="120">
@@ -122,9 +140,14 @@
             </template>
           </el-table-column>
           <el-table-column prop="deptName" label="部门" />
-          <el-table-column prop="totalHours" label="总工时" width="120">
+          <el-table-column prop="totalHours" label="总工时（含加班）" width="140">
             <template #default="{ row }">
               {{ row.totalHours }} 人天
+            </template>
+          </el-table-column>
+          <el-table-column prop="overtimeHours" label="加班工时" width="120">
+            <template #default="{ row }">
+              {{ row.overtimeHours }} 人天
             </template>
           </el-table-column>
         </el-table>
@@ -148,6 +171,7 @@ const CACHE_KEY = 'whs_project_filter'
 const summary = reactive({
   totalBudgetHours: 0,
   totalActualHours: 0,
+  totalOvertimeHours: 0,
   completionRate: 0
 })
 

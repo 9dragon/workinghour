@@ -314,9 +314,10 @@ def get_statistics_summary():
 
         total_budget_hours = float(budget_result[0]) if budget_result and budget_result[0] else 0
 
-        # 构建实际工时查询
+        # 构建实际工时查询（含加班时长）
         work_hours_query = db.session.query(
-            func.sum(WorkHourData.work_hours)
+            func.sum(WorkHourData.work_hours),
+            func.sum(WorkHourData.overtime_hours)
         )
 
         # 直接按 work_type 统计（不再关联员工表）
@@ -336,9 +337,11 @@ def get_statistics_summary():
                 )
 
         actual_result = work_hours_query.first()
-        total_actual_hours = float(actual_result[0]) if actual_result and actual_result[0] else 0
-        # 转换为"人天"（1人天 = 8小时）
-        total_actual_hours = total_actual_hours / 8
+        total_work = float(actual_result[0]) if actual_result and actual_result[0] else 0
+        total_overtime = float(actual_result[1]) if actual_result and actual_result[1] else 0
+        # 转换为"人天"（1人天 = 8小时），实际工时含加班
+        total_actual_hours = (total_work + total_overtime) / 8
+        total_overtime_hours = total_overtime / 8
 
         # 计算完成率
         completion_rate = (total_actual_hours / total_budget_hours * 100) if total_budget_hours > 0 else 0
@@ -346,6 +349,7 @@ def get_statistics_summary():
         return success_response(data={
             'totalBudgetHours': round(total_budget_hours, 2),
             'totalActualHours': round(total_actual_hours, 2),
+            'totalOvertimeHours': round(total_overtime_hours, 2),
             'completionRate': round(completion_rate, 2)
         })
 
@@ -396,9 +400,10 @@ def get_statistics_by_project():
                 role_employees = Employee.query.filter_by(role=target_role).all()
                 employee_names = [emp.employee_name for emp in role_employees]
 
-            # 查询实际工时：根据员工角色统计项目交付工时
+            # 查询实际工时（含加班）：根据员工角色统计项目交付工时
             actual_hours_query = db.session.query(
-                func.sum(WorkHourData.work_hours)
+                func.sum(WorkHourData.work_hours),
+                func.sum(WorkHourData.overtime_hours)
             ).filter(
                 WorkHourData.work_type == 'project_delivery'
             )
@@ -422,9 +427,11 @@ def get_statistics_by_project():
                 )
 
             actual_result = actual_hours_query.first()
-            actual_hours = float(actual_result[0]) if actual_result and actual_result[0] else 0
-            # 转换为"人天"（1人天 = 8小时）
-            actual_hours = actual_hours / 8
+            work_sum = float(actual_result[0]) if actual_result and actual_result[0] else 0
+            overtime_sum = float(actual_result[1]) if actual_result and actual_result[1] else 0
+            # 转换为"人天"（1人天 = 8小时），实际工时含加班
+            actual_hours = (work_sum + overtime_sum) / 8
+            overtime_hours = overtime_sum / 8
 
             # 计算完成率
             budget_hours = float(budget.budget_hours)
@@ -437,6 +444,7 @@ def get_statistics_by_project():
                 'budgetTypeLabel': ProjectBudget(budget_type=budget.budget_type).get_budget_type_label(),
                 'budgetHours': budget_hours,
                 'actualHours': round(actual_hours, 2),
+                'overtimeHours': round(overtime_hours, 2),
                 'completionRate': round(completion_rate, 2)
             })
 
@@ -488,9 +496,10 @@ def get_statistics_by_employee():
             project = Project.query.filter_by(project_code=project_code).first()
 
         for employee in employees:
-            # 查询该员工的实际工时（项目交付类型）
+            # 查询该员工的实际工时（含加班，项目交付类型）
             work_hours_query = db.session.query(
-                func.sum(WorkHourData.work_hours)
+                func.sum(WorkHourData.work_hours),
+                func.sum(WorkHourData.overtime_hours)
             ).filter(
                 WorkHourData.user_name == employee.employee_name,
                 WorkHourData.work_type == 'project_delivery'
@@ -503,14 +512,17 @@ def get_statistics_by_employee():
                 )
 
             work_hours_result = work_hours_query.first()
-            total_hours = float(work_hours_result[0]) if work_hours_result and work_hours_result[0] else 0
-            # 转换为"人天"（1人天 = 8小时）
-            total_hours = total_hours / 8
+            work_sum = float(work_hours_result[0]) if work_hours_result and work_hours_result[0] else 0
+            overtime_sum = float(work_hours_result[1]) if work_hours_result and work_hours_result[1] else 0
+            # 转换为"人天"（1人天 = 8小时），实际工时含加班
+            total_hours = (work_sum + overtime_sum) / 8
+            overtime_hours = overtime_sum / 8
 
-            # 查询该员工在各项目的工时分布（应用项目筛选）
+            # 查询该员工在各项目的工时分布（含加班）
             project_distribution = db.session.query(
                 WorkHourData.project_name,
-                func.sum(WorkHourData.work_hours).label('hours')
+                func.sum(WorkHourData.work_hours).label('hours'),
+                func.sum(WorkHourData.overtime_hours).label('overtime')
             ).filter(
                 WorkHourData.user_name == employee.employee_name,
                 WorkHourData.work_type == 'project_delivery'
@@ -529,7 +541,8 @@ def get_statistics_by_employee():
             projects = [
                 {
                     'projectName': item[0],
-                    'hours': round(float(item[1]) / 8, 2)  # 转换为"人天"
+                    'hours': round((float(item[1]) + float(item[2])) / 8, 2),
+                    'overtimeHours': round(float(item[2]) / 8, 2)
                 }
                 for item in project_distribution
             ]
@@ -543,6 +556,7 @@ def get_statistics_by_employee():
                     'role': employee.role,
                     'roleLabel': employee.get_role_label(),
                     'totalHours': round(total_hours, 2),
+                    'overtimeHours': round(overtime_hours, 2),
                     'projects': projects
                 })
 
