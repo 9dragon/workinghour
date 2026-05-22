@@ -4,6 +4,6 @@
 (cd .. && git stash pop)
 
 # Docker 操作在 deploy 目录执行
-docker-compose build
-docker-compose down
-docker-compose up -d
+docker compose build
+docker compose down
+docker compose up -d
