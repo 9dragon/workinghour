@@ -10,12 +10,12 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# 安装系统依赖
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        gcc \
-        g++ \
-        && rm -rf /var/lib/apt/lists/*
+
+# 先换源，再安装系统依赖
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gcc g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
 COPY requirements.txt .
