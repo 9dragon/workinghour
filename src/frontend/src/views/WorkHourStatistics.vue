@@ -12,7 +12,7 @@
       <div class="filters">
         <el-form :inline="true" :model="filters">
           <el-form-item label="项目名称">
-            <el-select v-model="filters.projectCode" placeholder="全部项目" clearable filterable style="width: 200px" @change="loadData">
+            <el-select v-model="filters.projectCode" placeholder="全部项目" clearable filterable style="width: 200px">
               <el-option
                 v-for="project in projectList"
                 :key="project.projectCode"
@@ -20,6 +20,27 @@
                 :value="project.projectCode"
               />
             </el-select>
+          </el-form-item>
+          <el-form-item label="时间范围">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              value-format="YYYY-MM-DD"
+              style="width: 260px"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleQuery">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><RefreshRight /></el-icon>
+              重置
+            </el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -159,6 +180,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Search, RefreshRight } from '@element-plus/icons-vue'
 import {
   getStatisticsSummary,
   getStatisticsByProject,
@@ -166,7 +188,7 @@ import {
   getProjects
 } from '@/api'
 
-const CACHE_KEY = 'whs_project_filter'
+const CACHE_KEY = 'whs_filters'
 
 const summary = reactive({
   totalBudgetHours: 0,
@@ -178,30 +200,34 @@ const summary = reactive({
 const projectStats = ref([])
 const employeeStats = ref([])
 const projectList = ref([])
+const dateRange = ref([])
 
 const filters = reactive({
-  projectCode: '',
-  role: ''
+  projectCode: ''
 })
+
+const buildQueryParams = () => {
+  return {
+    projectCode: filters.projectCode,
+    startDate: dateRange.value?.[0] || '',
+    endDate: dateRange.value?.[1] || ''
+  }
+}
 
 const loadData = async () => {
   try {
+    const params = buildQueryParams()
+
     // 加载汇总数据
-    const summaryRes = await getStatisticsSummary({
-      projectCode: filters.projectCode
-    })
+    const summaryRes = await getStatisticsSummary(params)
     Object.assign(summary, summaryRes.data)
 
     // 加载按项目统计
-    const projectRes = await getStatisticsByProject({
-      projectCode: filters.projectCode
-    })
+    const projectRes = await getStatisticsByProject(params)
     projectStats.value = projectRes.data
 
     // 加载按员工统计
-    const employeeRes = await getStatisticsByEmployee({
-      projectCode: filters.projectCode
-    })
+    const employeeRes = await getStatisticsByEmployee(params)
     employeeStats.value = employeeRes.data
     // 按类型、部门、总工时排序
     const rolePriority = {
@@ -223,12 +249,25 @@ const loadData = async () => {
     })
 
     // 保存筛选条件到缓存
-    localStorage.setItem(CACHE_KEY, filters.projectCode || '')
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      projectCode: filters.projectCode || '',
+      dateRange: dateRange.value || []
+    }))
 
   } catch (error) {
     ElMessage.error('加载统计数据失败')
     console.error(error)
   }
+}
+
+const handleQuery = () => {
+  loadData()
+}
+
+const handleReset = () => {
+  filters.projectCode = ''
+  dateRange.value = []
+  loadData()
 }
 
 const loadProjects = async () => {
@@ -294,9 +333,19 @@ onMounted(() => {
   loadProjects()
 
   // 从缓存恢复筛选条件
-  const cachedProjectCode = localStorage.getItem(CACHE_KEY)
-  if (cachedProjectCode) {
-    filters.projectCode = cachedProjectCode
+  try {
+    const cached = localStorage.getItem(CACHE_KEY)
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      if (parsed.projectCode) {
+        filters.projectCode = parsed.projectCode
+      }
+      if (parsed.dateRange && Array.isArray(parsed.dateRange) && parsed.dateRange.length === 2) {
+        dateRange.value = parsed.dateRange
+      }
+    }
+  } catch (e) {
+    console.error('Failed to restore filters from cache:', e)
   }
 
   loadData()

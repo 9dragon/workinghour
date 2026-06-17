@@ -10,7 +10,7 @@ const request = axios.create({
   // 开发环境使用 http://localhost:8000/api/v1（通过 .env.development 配置）
   // 生产环境使用相对路径 /api/v1（通过 nginx 反向代理到后端）
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
-  timeout: 30000
+  timeout: 120000
 })
 
 // 请求拦截器

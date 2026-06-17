@@ -8,10 +8,42 @@ from app.models.project_budget import ProjectBudget
 from app.models.work_hour_data import WorkHourData
 from app.utils.response import success_response, error_response, paginated_response
 from app.utils.jwt_utils import auth_required
+from app.utils.helpers import calculate_date_range
 from sqlalchemy import func, and_
 from decimal import Decimal
+from datetime import datetime
 
 budget_bp = Blueprint('budget', __name__)
+
+
+def _apply_date_range_filter(query, start_date_str, end_date_str):
+    """为工时查询应用时间范围过滤（完全包含逻辑）
+
+    参数:
+        query: SQLAlchemy Query 对象
+        start_date_str: 开始日期字符串 (YYYY-MM-DD) 或空字符串
+        end_date_str: 结束日期字符串 (YYYY-MM-DD) 或空字符串
+
+    返回:
+        (query, error_response): 过滤后的查询对象；若校验失败第二个元素为错误响应
+    """
+    start_date_str = (start_date_str or '').strip()
+    end_date_str = (end_date_str or '').strip()
+
+    if not start_date_str and not end_date_str:
+        return query, None
+
+    is_valid, error_msg, *_ = calculate_date_range(start_date_str, end_date_str)
+    if not is_valid:
+        return None, error_response(4001, error_msg, http_status=400)
+
+    start = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    end = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    query = query.filter(
+        WorkHourData.start_time >= start,
+        WorkHourData.end_time <= end
+    )
+    return query, None
 
 
 # ==================== 员工角色管理 ====================
@@ -300,6 +332,8 @@ def get_statistics_summary():
     """预算统计汇总"""
     try:
         project_code = request.args.get('projectCode', '')
+        start_date = request.args.get('startDate', '')
+        end_date = request.args.get('endDate', '')
 
         # 构建预算查询
         budget_query = ProjectBudget.query
@@ -336,6 +370,11 @@ def get_statistics_summary():
                     WorkHourData.project_id == project.id
                 )
 
+        # 按时间范围筛选
+        work_hours_query, error = _apply_date_range_filter(work_hours_query, start_date, end_date)
+        if error:
+            return error
+
         actual_result = work_hours_query.first()
         total_work = float(actual_result[0]) if actual_result and actual_result[0] else 0
         total_overtime = float(actual_result[1]) if actual_result and actual_result[1] else 0
@@ -363,6 +402,8 @@ def get_statistics_by_project():
     """按项目统计预算执行情况"""
     try:
         project_code = request.args.get('projectCode', '')
+        start_date = request.args.get('startDate', '')
+        end_date = request.args.get('endDate', '')
 
         # 构建查询
         query = db.session.query(
@@ -426,6 +467,11 @@ def get_statistics_by_project():
                     WorkHourData.project_name == budget.project_name
                 )
 
+            # 按时间范围筛选
+            actual_hours_query, error = _apply_date_range_filter(actual_hours_query, start_date, end_date)
+            if error:
+                return error
+
             actual_result = actual_hours_query.first()
             work_sum = float(actual_result[0]) if actual_result and actual_result[0] else 0
             overtime_sum = float(actual_result[1]) if actual_result and actual_result[1] else 0
@@ -461,6 +507,8 @@ def get_statistics_by_employee():
     try:
         project_code = request.args.get('projectCode', '')
         role = request.args.get('budgetType', '')
+        start_date = request.args.get('startDate', '')
+        end_date = request.args.get('endDate', '')
 
         # 构建员工查询：统计所有有项目交付工时记录的员工
         subquery = db.session.query(
@@ -511,6 +559,11 @@ def get_statistics_by_employee():
                     WorkHourData.project_id == project.id
                 )
 
+            # 按时间范围筛选
+            work_hours_query, error = _apply_date_range_filter(work_hours_query, start_date, end_date)
+            if error:
+                return error
+
             work_hours_result = work_hours_query.first()
             work_sum = float(work_hours_result[0]) if work_hours_result and work_hours_result[0] else 0
             overtime_sum = float(work_hours_result[1]) if work_hours_result and work_hours_result[1] else 0
@@ -533,6 +586,11 @@ def get_statistics_by_employee():
                 project_distribution = project_distribution.filter(
                     WorkHourData.project_id == project.id
                 )
+
+            # 应用时间范围筛选
+            project_distribution, error = _apply_date_range_filter(project_distribution, start_date, end_date)
+            if error:
+                return error
 
             project_distribution = project_distribution.group_by(
                 WorkHourData.project_name
