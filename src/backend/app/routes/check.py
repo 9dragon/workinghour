@@ -16,6 +16,35 @@ import json
 check_bp = Blueprint('check', __name__)
 
 
+def _collect_missing_in_gap(details, missing_users, user, dept, gap_start, gap_end,
+                            workdays, non_workdays, extra_workdays):
+    """统计 [gap_start, gap_end] 内的工作日，写入一条 missing 详情；返回工作日数。"""
+    if gap_start > gap_end:
+        return 0
+    workdays_in_gap = get_workdays_in_range(gap_start, gap_end, workdays, non_workdays)
+    for wd in extra_workdays:
+        if gap_start <= wd <= gap_end and wd not in workdays_in_gap:
+            workdays_in_gap.append(wd)
+    workdays_in_gap.sort()
+    if not workdays_in_gap:
+        return 0
+    missing_dates = [d.strftime('%Y-%m-%d') for d in workdays_in_gap]
+    details.append({
+        'deptName': dept,
+        'userName': user,
+        'issueType': 'missing',
+        'serialNo': None,
+        'gapStartDate': gap_start.strftime('%Y-%m-%d'),
+        'gapEndDate': gap_end.strftime('%Y-%m-%d'),
+        'affectedWorkdays': len(workdays_in_gap),
+        'missingDates': missing_dates,
+        'description': f'未提交周报（{len(workdays_in_gap)}个工作日：{", ".join(missing_dates)}）'
+    })
+    if user not in missing_users:
+        missing_users.append(user)
+    return len(workdays_in_gap)
+
+
 @check_bp.route('/check/integrity-consistency', methods=['POST'])
 def check_integrity_consistency():
     """周报提交完整性和重复检测检查"""
@@ -112,46 +141,45 @@ def check_integrity_consistency():
 
             user_orders = user_orders_query.distinct().order_by(WorkHourData.start_time).all()
 
+            # Bug 1 场景 B：本次核对区间内无任何工单 → 整段视为空缺
             if len(user_orders) == 0:
+                total_missing_days += _collect_missing_in_gap(
+                    details, missing_users, user, dept,
+                    start, end, workdays, non_workdays, extra_workdays
+                )
                 continue
 
-            # ========== 空缺检查：检查相邻工单之间的时间空隙 ==========
+            # Bug 2 首段：核对区间起点 ~ 第一份工单之前
+            first_order = user_orders[0]
+            if first_order.start_time > start:
+                total_missing_days += _collect_missing_in_gap(
+                    details, missing_users, user, dept,
+                    start, first_order.start_time - timedelta(days=1),
+                    workdays, non_workdays, extra_workdays
+                )
+
+            # 空缺检查：相邻工单之间的时间空隙
             for i in range(len(user_orders) - 1):
                 current_end = user_orders[i].end_time
                 next_start = user_orders[i + 1].start_time
 
-                # 如果前一工单结束时间 < 后一工单开始时间，存在空隙
                 if current_end < next_start:
                     gap_start = current_end + timedelta(days=1)
                     gap_end = next_start - timedelta(days=1)
+                    total_missing_days += _collect_missing_in_gap(
+                        details, missing_users, user, dept,
+                        gap_start, gap_end,
+                        workdays, non_workdays, extra_workdays
+                    )
 
-                    # 计算空隙期间的工作日天数
-                    workdays_in_gap = get_workdays_in_range(gap_start, gap_end, workdays, non_workdays)
-                    # 加上调休工作日
-                    for wd in extra_workdays:
-                        if gap_start <= wd <= gap_end and wd not in workdays_in_gap:
-                            workdays_in_gap.append(wd)
-                    workdays_in_gap.sort()
-
-                    if len(workdays_in_gap) > 0:
-                        total_missing_days += len(workdays_in_gap)
-                        if user not in missing_users:
-                            missing_users.append(user)
-
-                        # 将工作日日期格式化为字符串列表
-                        missing_dates = [d.strftime('%Y-%m-%d') for d in workdays_in_gap]
-
-                        details.append({
-                            'deptName': dept,
-                            'userName': user,
-                            'issueType': 'missing',
-                            'serialNo': None,
-                            'gapStartDate': gap_start.strftime('%Y-%m-%d'),
-                            'gapEndDate': gap_end.strftime('%Y-%m-%d'),
-                            'affectedWorkdays': len(workdays_in_gap),
-                            'missingDates': missing_dates,
-                            'description': f'未提交周报（{len(workdays_in_gap)}个工作日：{", ".join(missing_dates)}）'
-                        })
+            # Bug 2 尾段：最后一份工单之后 ~ 核对区间终点
+            last_order = user_orders[-1]
+            if last_order.end_time < end:
+                total_missing_days += _collect_missing_in_gap(
+                    details, missing_users, user, dept,
+                    last_order.end_time + timedelta(days=1), end,
+                    workdays, non_workdays, extra_workdays
+                )
 
             # ========== 重复检查：检查工单时间范围是否有重叠 ==========
             # 使用集合跟踪已记录的重叠期间，避免同一期间重复统计

@@ -4,7 +4,8 @@
       "Bash(python app.py)",
       "Bash(npm run:*)",
       "Bash(netstat -ano)",
-      "Bash(python run.py)"
+      "Bash(python run.py)",
+      "Bash(python *)"
     ]
   }
 }
