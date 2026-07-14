@@ -11,7 +11,8 @@
       "Bash(PYTHONIOENCODING=utf-8 python -m py_compile app/services/notifier/email_notifier.py)",
       "Bash(PYTHONIOENCODING=utf-8 python -m py_compile app/services/notifier/email_notifier.py app/routes/notifications.py)",
       "Bash(findstr \":8000 :8001 LISTENING\")",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(git *)"
     ]
   }
 }
