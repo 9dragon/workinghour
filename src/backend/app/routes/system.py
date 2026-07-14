@@ -22,11 +22,15 @@ def health_check():
 
 @system_bp.route('/system/config', methods=['GET'])
 def get_system_config():
-    """获取系统配置"""
+    """获取系统配置。
+
+    过滤掉 is_editable=0 的行（如通知渠道的 AppSecret / SMTP 密码），
+    避免通过此公开接口暴露敏感值。
+    """
     try:
         category = request.args.get('category', '')
 
-        query = SysConfig.query
+        query = SysConfig.query.filter(SysConfig.is_editable == 1)
 
         if category:
             query = query.filter_by(category=category)

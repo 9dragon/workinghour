@@ -105,6 +105,12 @@ const routes = [
         meta: { title: '用户管理' }
       },
       {
+        path: 'check/notification-logs',
+        name: 'NotificationLogs',
+        component: () => import('@/views/NotificationLogs.vue'),
+        meta: { title: '通知发送日志' }
+      },
+      {
         path: 'user-management',
         redirect: '/data/employee-management'
       },

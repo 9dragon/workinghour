@@ -44,6 +44,27 @@ class Config:
     COMPLIANCE_MAX_OVERTIME = 4
     COMPLIANCE_MAX_MONTHLY_OVERTIME = 80
 
+    # === 调度器配置 ===
+    SCHEDULER_ENABLED = os.environ.get('SCHEDULER_ENABLED', 'true').lower() == 'true'
+    SCHEDULER_CRON = os.environ.get('SCHEDULER_CRON', '0 18 * * 1')  # 默认每周一 18:00
+    SCHEDULER_TIMEZONE = os.environ.get('SCHEDULER_TIMEZONE', 'Asia/Shanghai')
+
+    # === 钉钉企业应用通知 ===
+    NOTIFY_DINGTALK = os.environ.get('NOTIFY_DINGTALK', 'true').lower() == 'true'
+    DINGTALK_CORP_ID = os.environ.get('DINGTALK_CORP_ID', '')
+    DINGTALK_AGENT_ID = os.environ.get('DINGTALK_AGENT_ID', '')
+    DINGTALK_APP_KEY = os.environ.get('DINGTALK_APP_KEY', '')
+    DINGTALK_APP_SECRET = os.environ.get('DINGTALK_APP_SECRET', '')
+
+    # === SMTP 邮件通知 ===
+    NOTIFY_EMAIL = os.environ.get('NOTIFY_EMAIL', 'true').lower() == 'true'
+    SMTP_HOST = os.environ.get('SMTP_HOST', '')
+    SMTP_PORT = int(os.environ.get('SMTP_PORT', '465'))
+    SMTP_USER = os.environ.get('SMTP_USER', '')
+    SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+    SMTP_USE_SSL = os.environ.get('SMTP_USE_SSL', 'true').lower() == 'true'
+    MAIL_FROM = os.environ.get('MAIL_FROM', '')
+
 class DevelopmentConfig(Config):
     """开发环境配置"""
     DEBUG = True

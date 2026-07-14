@@ -78,7 +78,9 @@ def create_employee():
         employee = Employee(
             employee_name=data['employeeName'],
             dept_name=data.get('deptName', ''),
-            role=role
+            role=role,
+            phone=(data.get('phone') or '').strip() or None,
+            email=(data.get('email') or '').strip() or None
         )
 
         db.session.add(employee)
@@ -109,6 +111,10 @@ def update_employee(employee_id):
             if data['role'] not in valid_roles:
                 return error_response(7005, '无效的角色值', http_status=400)
             employee.role = data['role']
+        if 'phone' in data:
+            employee.phone = (data['phone'] or '').strip() or None
+        if 'email' in data:
+            employee.email = (data['email'] or '').strip() or None
 
         db.session.commit()
         return success_response(data=employee.to_dict(), message='更新成功')

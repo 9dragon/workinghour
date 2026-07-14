@@ -2,16 +2,37 @@
 工时查询路由
 """
 from flask import Blueprint, request, send_file
+from sqlalchemy import func
 from app.models.db import db
 from app.models.work_hour_data import WorkHourData
+from app.models.import_record import ImportRecord
 from app.utils.response import success_response, error_response, paginated_response
 from app.utils.helpers import calculate_date_range
+from app.utils.jwt_utils import auth_required
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
 import os
 
 query_bp = Blueprint('query', __name__)
+
+
+def _refresh_import_record_stats(batch_nos):
+    """删除工时后重算受影响批次的 success_rows。
+
+    total_rows/repeat_rows/invalid_rows 是导入时的历史快照，不动；
+    success_rows 是实际入库行数，删除后用 COUNT(*) 重新统计覆盖写入。
+    """
+    if not batch_nos:
+        return
+    for batch_no in set(batch_nos):
+        if not batch_no:
+            continue
+        cnt = db.session.query(func.count(WorkHourData.id)) \
+            .filter(WorkHourData.import_batch_no == batch_no).scalar() or 0
+        rec = ImportRecord.query.filter_by(batch_no=batch_no).first()
+        if rec:
+            rec.success_rows = cnt
 
 
 @query_bp.route('/query/project', methods=['GET'])
@@ -56,7 +77,6 @@ def query_by_project():
             query = query.filter(WorkHourData.start_time >= start, WorkHourData.end_time <= end)
 
         # 计算统计数据（在分页前）
-        from sqlalchemy import func
         stats = query.with_entities(
             func.count(WorkHourData.id).label('total'),
             func.sum(WorkHourData.work_hours).label('total_work_hours'),
@@ -141,7 +161,6 @@ def query_by_organization():
             query = query.filter(WorkHourData.start_time >= start, WorkHourData.end_time <= end)
 
         # 计算统计数据（在分页前）
-        from sqlalchemy import func
         stats = query.with_entities(
             func.count(WorkHourData.id).label('total'),
             func.sum(WorkHourData.work_hours).label('total_work_hours'),
@@ -257,4 +276,60 @@ def export_query_result():
         )
 
     except Exception as e:
+        return error_response(500, str(e), http_status=500)
+
+
+@query_bp.route('/query/work-hour/<int:record_id>', methods=['DELETE'])
+@auth_required
+def delete_work_hour(record_id):
+    """删除单条工时记录"""
+    try:
+        record = WorkHourData.query.get(record_id)
+        if not record:
+            return error_response(3001, '工时记录不存在', http_status=404)
+
+        batch_no = record.import_batch_no
+        db.session.delete(record)
+        db.session.flush()
+        _refresh_import_record_stats([batch_no])
+        db.session.commit()
+
+        return success_response(message='删除成功')
+
+    except Exception as e:
+        db.session.rollback()
+        return error_response(500, str(e), http_status=500)
+
+
+@query_bp.route('/query/work-hour/batch', methods=['DELETE'])
+@auth_required
+def batch_delete_work_hours():
+    """批量删除工时记录"""
+    try:
+        data = request.get_json() or {}
+        ids = data.get('ids', [])
+
+        if not ids:
+            return error_response(4001, '请选择要删除的记录', http_status=400)
+        if len(ids) > 500:
+            return error_response(4002, '单次最多删除 500 条', http_status=400)
+
+        records = WorkHourData.query.filter(WorkHourData.id.in_(ids)).all()
+        if not records:
+            return error_response(3001, '工时记录不存在', http_status=404)
+
+        batch_nos = [r.import_batch_no for r in records]
+        for r in records:
+            db.session.delete(r)
+        db.session.flush()
+        _refresh_import_record_stats(batch_nos)
+        db.session.commit()
+
+        return success_response(
+            message=f'成功删除 {len(records)} 条记录',
+            data={'count': len(records)}
+        )
+
+    except Exception as e:
+        db.session.rollback()
         return error_response(500, str(e), http_status=500)

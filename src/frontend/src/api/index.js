@@ -329,6 +329,26 @@ export const queryByOrganization = (params) => {
   return request.get('/query/organization', { params })
 }
 
+// 删除单条工时记录
+export const deleteWorkHour = (id) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({ code: 200, message: '删除成功', data: null })
+  }
+  return request.delete(`/query/work-hour/${id}`)
+}
+
+// 批量删除工时记录
+export const batchDeleteWorkHours = (ids) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: `成功删除 ${ids.length} 条记录`,
+      data: { count: ids.length }
+    })
+  }
+  return request.delete('/query/work-hour/batch', { data: { ids } })
+}
+
 // 导出查询结果
 export const exportQueryResult = (params) => {
   if (MOCK_MODE) {
@@ -702,6 +722,133 @@ export const getDataDict = () => {
     })
   }
   return request.get('/data/dict')
+}
+
+// ============== 通知相关 ==============
+
+// 手动触发一次定时检查 + 通知（admin only，用于上线前验证）
+export const triggerNotificationTest = () => {
+  if (MOCK_MODE) {
+    return Promise.resolve({ code: 200, message: '通知测试已执行（mock）', data: null })
+  }
+  return request.post('/notifications/test')
+}
+
+// 获取调度 + 通知配置概览（不返回 secret）
+export const getNotificationConfig = () => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: {
+        schedulerEnabled: true,
+        schedulerCron: '0 18 * * 1',
+        schedulerTimezone: 'Asia/Shanghai',
+        lookbackWeeks: 2,
+        reloadPending: false,
+        dingtalk: { enabled: true, configured: false, corpId: '', agentId: '', appKey: '', hasAppSecret: false },
+        email: { enabled: true, configured: false, host: '', port: 465, useSsl: true, fromAddr: '', user: '', hasPassword: false }
+      }
+    })
+  }
+  return request.get('/notifications/config')
+}
+
+// 更新调度配置（cron/enabled/timezone/lookbackWeeks，admin only）
+export const updateSchedulerConfig = (data) => {
+  if (MOCK_MODE) {
+    ElMessage.success('调度配置已保存（mock）')
+    return Promise.resolve({ code: 200, message: '配置已保存' })
+  }
+  return request.put('/notifications/scheduler/config', data)
+}
+
+// 触发调度器立即重载（admin only，实际生效 ≤60s）
+export const reloadScheduler = () => {
+  if (MOCK_MODE) {
+    return Promise.resolve({ code: 200, message: '重载请求已记录（mock）' })
+  }
+  return request.post('/notifications/scheduler/reload')
+}
+
+// 分页查询通知发送日志
+export const getNotificationLogs = (params) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: '获取成功',
+      data: { list: [], total: 0, page: params?.page || 1, size: params?.size || 20, totalPages: 0 }
+    })
+  }
+  return request.get('/notifications/logs', { params })
+}
+
+// 按检查批次查通知日志
+export const getNotificationLogsByCheck = (checkNo) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({ code: 200, message: '获取成功', data: { list: [] } })
+  }
+  return request.get(`/notifications/logs/by-check/${checkNo}`)
+}
+
+// 删除单条通知日志
+export const deleteNotificationLog = (id) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({ code: 200, message: '删除成功', data: null })
+  }
+  return request.delete(`/notifications/logs/${id}`)
+}
+
+// 批量删除通知日志
+export const batchDeleteNotificationLogs = (ids) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({
+      code: 200,
+      message: `成功删除 ${ids.length} 条日志`,
+      data: null
+    })
+  }
+  return request.delete('/notifications/logs/batch', { data: { ids } })
+}
+
+// ============== 渠道凭证配置 ==============
+
+// 更新钉钉渠道配置
+// data 字段全部可选：{ enabled, corpId, agentId, appKey, appSecret }
+// 其中 appSecret 仅在非空时覆盖；空值表示"不修改"
+export const updateDingtalkConfig = (data) => {
+  if (MOCK_MODE) {
+    ElMessage.success('钉钉配置已保存（mock）')
+    return Promise.resolve({ code: 200, message: '钉钉配置已保存' })
+  }
+  return request.put('/notifications/channels/dingtalk', data)
+}
+
+// 更新邮件渠道配置
+// data 字段全部可选：{ enabled, host, port, useSsl, user, fromAddr, password }
+// 其中 password 仅在非空时覆盖；空值表示"不修改"
+export const updateEmailConfig = (data) => {
+  if (MOCK_MODE) {
+    ElMessage.success('邮件配置已保存（mock）')
+    return Promise.resolve({ code: 200, message: '邮件配置已保存' })
+  }
+  return request.put('/notifications/channels/email', data)
+}
+
+// 发送钉钉测试消息（会真实发到 target 手机号对应的用户）
+export const testDingtalkChannel = (target) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({ code: 200, message: '测试消息已发送（mock）' })
+  }
+  return request.post('/notifications/channels/dingtalk/test', { target })
+}
+
+// 发送邮件测试消息（会真实发到 target 邮箱）
+export const testEmailChannel = (target) => {
+  if (MOCK_MODE) {
+    return Promise.resolve({ code: 200, message: '测试邮件已发送（mock）' })
+  }
+  return request.post('/notifications/channels/email/test', { target })
 }
 
 // 数据备份

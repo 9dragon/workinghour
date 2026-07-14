@@ -113,6 +113,18 @@
             <el-tag v-else type="info">普通员工</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="phone" label="手机号(钉钉)" min-width="140">
+          <template #default="{ row }">
+            <span v-if="row.phone">{{ row.phone }}</span>
+            <el-tag v-else type="danger" size="small">未填</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="email" label="邮箱" min-width="180">
+          <template #default="{ row }">
+            <span v-if="row.email">{{ row.email }}</span>
+            <el-tag v-else type="danger" size="small">未填</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
@@ -165,6 +177,12 @@
             <el-option label="软件实施" value="software_dev" />
             <el-option label="普通员工" value="staff" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input v-model="formData.phone" placeholder="钉钉通知用，11 位手机号" maxlength="11" />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="formData.email" placeholder="邮件通知用" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -231,7 +249,9 @@ const formData = reactive({
   id: null,
   employeeName: '',
   deptName: '',
-  role: 'staff'
+  role: 'staff',
+  phone: '',
+  email: ''
 })
 
 const batchDialogVisible = ref(false)
@@ -291,6 +311,8 @@ const handleAdd = () => {
   formData.employeeName = ''
   formData.deptName = ''
   formData.role = 'staff'
+  formData.phone = ''
+  formData.email = ''
   dialogVisible.value = true
 }
 
@@ -301,6 +323,8 @@ const handleEdit = (row) => {
   formData.employeeName = row.employeeName
   formData.deptName = row.deptName || ''
   formData.role = row.role || 'staff'
+  formData.phone = row.phone || ''
+  formData.email = row.email || ''
   dialogVisible.value = true
 }
 
@@ -311,17 +335,32 @@ const handleSave = async () => {
       return
     }
 
+    const phone = formData.phone.trim()
+    if (phone && !/^1\d{10}$/.test(phone)) {
+      ElMessage.warning('手机号格式不正确（应为 11 位数字）')
+      return
+    }
+    const email = formData.email.trim()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      ElMessage.warning('邮箱格式不正确')
+      return
+    }
+
     if (isEdit.value) {
       await updateEmployee(formData.id, {
         deptName: formData.deptName,
-        role: formData.role
+        role: formData.role,
+        phone,
+        email
       })
       ElMessage.success('更新成功')
     } else {
       await createEmployee({
         employeeName: formData.employeeName,
         deptName: formData.deptName,
-        role: formData.role
+        role: formData.role,
+        phone,
+        email
       })
       ElMessage.success('创建成功')
     }

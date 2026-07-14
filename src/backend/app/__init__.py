@@ -37,6 +37,7 @@ def create_app(config_class=Config):
     from .routes.employee_management import employee_mgmt_bp
     from .routes.budget import budget_bp
     from .routes.projects import projects_bp
+    from .routes.notifications import notifications_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(data_bp, url_prefix='/api/v1')
@@ -49,6 +50,7 @@ def create_app(config_class=Config):
     app.register_blueprint(employee_mgmt_bp, url_prefix='/api/v1')
     app.register_blueprint(budget_bp, url_prefix='/api/v1')
     app.register_blueprint(projects_bp, url_prefix='/api/v1')
+    app.register_blueprint(notifications_bp, url_prefix='/api/v1')
 
     # 创建数据库表
     with app.app_context():
@@ -92,6 +94,10 @@ def _init_default_data():
         ('check.max_overtime', '4', 'number', 'check', '单日最大加班时长(小时)', 1),
         ('check.max_monthly_overtime', '80', 'number', 'check', '月度最大加班时长(小时)', 1),
         ('check.workdays', '[1,2,3,4,5]', 'json', 'check', '标准工作日(1-7,周一到周日)', 1),
+        ('scheduler.lookback_weeks', '2', 'number', 'system', '定时检查向前推几周(避开审批/导入延迟)', 1),
+        ('scheduler.enabled', 'true', 'boolean', 'system', '是否启用定时调度器', 1),
+        ('scheduler.cron', '0 18 * * 1', 'string', 'system', '定时检查 cron 表达式(分 时 日 月 周)', 1),
+        ('scheduler.timezone', 'Asia/Shanghai', 'string', 'system', '调度器时区', 1),
         ('system.file_retention_days', '7', 'number', 'system', '文件保留周期(天)', 1),
     ]
 

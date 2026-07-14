@@ -61,6 +61,10 @@
             <el-icon><Notebook /></el-icon>
             <span>核对历史</span>
           </el-menu-item>
+          <el-menu-item index="/check/notification-logs">
+            <el-icon><Bell /></el-icon>
+            <span>通知发送日志</span>
+          </el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="data">

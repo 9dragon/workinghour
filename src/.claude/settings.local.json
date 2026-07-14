@@ -5,7 +5,13 @@
       "Bash(npm run:*)",
       "Bash(netstat -ano)",
       "Bash(python run.py)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(PYTHONIOENCODING=utf-8 python migrate_db.py)",
+      "Bash(pip install *)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m py_compile app/services/notifier/email_notifier.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m py_compile app/services/notifier/email_notifier.py app/routes/notifications.py)",
+      "Bash(findstr \":8000 :8001 LISTENING\")",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

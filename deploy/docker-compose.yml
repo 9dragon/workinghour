@@ -51,6 +51,47 @@ services:
       retries: 3
       start_period: 10s
 
+  # 定时调度器服务（独立进程，与 web 服务共享同一 SQLite 数据库卷）
+  scheduler:
+    build:
+      context: ../src/backend
+      dockerfile: Dockerfile
+    container_name: workinghour-scheduler
+    restart: unless-stopped
+    command: python scheduler.py
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-key}
+      - DATABASE_PATH=/app/instance/workinghour.db
+      # 调度器
+      - SCHEDULER_ENABLED=${SCHEDULER_ENABLED:-true}
+      - SCHEDULER_CRON=${SCHEDULER_CRON:-0 18 * * 1}
+      - SCHEDULER_TIMEZONE=${SCHEDULER_TIMEZONE:-Asia/Shanghai}
+      # 钉钉企业应用
+      - NOTIFY_DINGTALK=${NOTIFY_DINGTALK:-true}
+      - DINGTALK_CORP_ID=${DINGTALK_CORP_ID:-}
+      - DINGTALK_AGENT_ID=${DINGTALK_AGENT_ID:-}
+      - DINGTALK_APP_KEY=${DINGTALK_APP_KEY:-}
+      - DINGTALK_APP_SECRET=${DINGTALK_APP_SECRET:-}
+      # SMTP 邮件
+      - NOTIFY_EMAIL=${NOTIFY_EMAIL:-true}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_USE_SSL=${SMTP_USE_SSL:-true}
+      - MAIL_FROM=${MAIL_FROM:-}
+    volumes:
+      - backend-data:/app/instance
+      - backend-uploads:/app/uploads
+      - ../src/backend:/app
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - workinghour-network
+
 # 数据卷
 volumes:
   backend-data:
