@@ -52,6 +52,18 @@ def create_app(config_class=Config):
     app.register_blueprint(projects_bp, url_prefix='/api/v1')
     app.register_blueprint(notifications_bp, url_prefix='/api/v1')
 
+    # 运行数据库迁移（幂等；DB 不存在时返回 False，由下方 db.create_all() 创建）
+    from .migrations import run_migrations
+    try:
+        run_migrations(
+            db_path=config_class.DATABASE_PATH,
+            backup=False,
+            verbose=False,
+            logger=app.logger,
+        )
+    except Exception as e:
+        app.logger.warning(f"数据库迁移失败，将仅依赖 db.create_all(): {e}")
+
     # 创建数据库表
     with app.app_context():
         db.create_all()
