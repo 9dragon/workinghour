@@ -40,14 +40,19 @@ DEFAULT_CRON = '0 18 * * 1'
 DEFAULT_TZ = 'Asia/Shanghai'
 
 
-def _parse_cron(expr):
-    """解析 5 字段 cron 表达式为 CronTrigger。失败抛 ValueError。"""
+def _parse_cron(expr, tz=None):
+    """解析 5 字段 cron 表达式为 CronTrigger。失败抛 ValueError。
+
+    tz 必须在构造函数里传入——直接给 trigger.timezone 赋字符串值会绕过
+    APScheduler 的时区对象转换，触发 'tzinfo argument must be ... not str'。
+    """
     parts = (expr or '').split()
     if len(parts) != 5:
         raise ValueError(f"cron 表达式必须是 5 字段（分 时 日 月 周），当前: {expr!r}")
     return CronTrigger(
         minute=parts[0], hour=parts[1], day=parts[2],
-        month=parts[3], day_of_week=parts[4]
+        month=parts[3], day_of_week=parts[4],
+        timezone=tz
     )
 
 
@@ -121,8 +126,7 @@ def _reschedule_if_changed(scheduler, app, state):
         logger.info("scheduler.enabled=false，主任务保持暂停状态")
     else:
         try:
-            trigger = _parse_cron(latest['cron'])
-            trigger.timezone = latest['tz']
+            trigger = _parse_cron(latest['cron'], latest['tz'])
         except ValueError as e:
             logger.error(f"cron 解析失败，保持已移除状态: {e}")
             # 不更新 state.last_reload_seen，让下一次轮询再尝试
