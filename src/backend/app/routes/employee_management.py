@@ -20,6 +20,7 @@ def get_employees():
         keyword = request.args.get('keyword', '')
         dept_filter = request.args.get('dept', '')
         role_filter = request.args.get('role', '')
+        status_filter = request.args.get('status', '')
 
         query = Employee.query
 
@@ -34,6 +35,10 @@ def get_employees():
         # 角色筛选
         if role_filter:
             query = query.filter(Employee.role == role_filter)
+
+        # 状态筛选（在职/离职）
+        if status_filter:
+            query = query.filter(Employee.employee_status == status_filter)
 
         pagination = query.order_by(Employee.employee_name).paginate(
             page=page, per_page=size, error_out=False
@@ -74,11 +79,17 @@ def create_employee():
         if role not in valid_roles:
             return error_response(7005, '无效的角色值', http_status=400)
 
+        # 验证状态值（如果提供）
+        employee_status = data.get('employeeStatus', 'active')
+        if employee_status not in ('active', 'resigned'):
+            return error_response(7005, '无效的状态值', http_status=400)
+
         # 创建员工
         employee = Employee(
             employee_name=data['employeeName'],
             dept_name=data.get('deptName', ''),
             role=role,
+            employee_status=employee_status,
             phone=(data.get('phone') or '').strip() or None,
             email=(data.get('email') or '').strip() or None
         )
@@ -111,6 +122,10 @@ def update_employee(employee_id):
             if data['role'] not in valid_roles:
                 return error_response(7005, '无效的角色值', http_status=400)
             employee.role = data['role']
+        if 'employeeStatus' in data:
+            if data['employeeStatus'] not in ('active', 'resigned'):
+                return error_response(7005, '无效的状态值', http_status=400)
+            employee.employee_status = data['employeeStatus']
         if 'phone' in data:
             employee.phone = (data['phone'] or '').strip() or None
         if 'email' in data:

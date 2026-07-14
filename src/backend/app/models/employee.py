@@ -12,6 +12,7 @@ class Employee(db.Model):
     employee_name = db.Column(db.String(50), unique=True, nullable=False, index=True)
     dept_name = db.Column(db.String(50), nullable=False, index=True)
     role = db.Column(db.String(20), nullable=False, default='staff', index=True)
+    employee_status = db.Column(db.String(20), nullable=False, default='active', index=True)
     phone = db.Column(db.String(20), index=True)
     email = db.Column(db.String(100), index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
@@ -25,6 +26,8 @@ class Employee(db.Model):
             'deptName': self.dept_name,
             'role': self.role,
             'roleLabel': self.get_role_label(),
+            'employeeStatus': self.employee_status,
+            'employeeStatusLabel': '在职' if self.employee_status == 'active' else '离职',
             'phone': self.phone,
             'email': self.email,
             'createdAt': self.created_at.isoformat() if self.created_at else None

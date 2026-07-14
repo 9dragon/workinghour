@@ -12,6 +12,7 @@ from sqlalchemy import func
 
 from app.models.db import db
 from app.models.work_hour_data import WorkHourData
+from app.models.employee import Employee
 from app.models.check_record import CheckRecord
 from app.models.holiday import Holiday
 from app.utils.helpers import calculate_date_range, get_workdays_in_range, generate_batch_no
@@ -95,10 +96,14 @@ def run_integrity_check(*, start_date, end_date, dept_name='', user_name='',
     non_workdays = [h.holiday_date for h in holiday_records if not h.is_workday]
     extra_workdays = [h.holiday_date for h in holiday_records if h.is_workday]
 
-    # 应提交名单
+    # 应提交名单（排除离职员工）
     user_query = db.session.query(
         WorkHourData.user_name, WorkHourData.dept_name
     ).distinct()
+    resigned_subq = db.session.query(Employee.employee_name).filter(
+        Employee.employee_status == 'resigned'
+    ).subquery()
+    user_query = user_query.filter(~WorkHourData.user_name.in_(resigned_subq))
     if dept_name:
         user_query = user_query.filter(WorkHourData.dept_name.like(f'%{dept_name}%'))
     if user_name:

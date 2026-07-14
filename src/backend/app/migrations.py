@@ -6,8 +6,9 @@
 2. 创建 employees 表（若不存在）
 3. employees 表增加 role 列（旧版本可能缺失）
 4. employees 表增加 phone、email 列（用于通知）
-5. 创建 notification_logs 表（若不存在）
-6. notification_logs 表增加 content 列（存储消息体）
+5. employees 表增加 employee_status 列（在职/离职，用于跳过离职员工的周报检查与通知）
+6. 创建 notification_logs 表（若不存在）
+7. notification_logs 表增加 content 列（存储消息体）
 
 使用方式：
 - 应用启动时自动调用：由 app.create_app() 调用 run_migrations()
@@ -112,6 +113,18 @@ def ensure_employees_columns(cursor, log):
         log("employees 表新增 email 列")
 
 
+def ensure_employees_status_column(cursor, log):
+    """幂等加 employee_status 列（在职/离职，默认在职）"""
+    if not column_exists(cursor, 'employees', 'employee_status'):
+        cursor.execute(
+            "ALTER TABLE employees ADD COLUMN employee_status VARCHAR(20) NOT NULL DEFAULT 'active'"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS ix_employees_employee_status ON employees (employee_status)"
+        )
+        log("employees 表新增 employee_status 列（默认 active）")
+
+
 def ensure_notification_logs_table(cursor, log):
     """创建 notification_logs 表（幂等）"""
     if table_exists(cursor, 'notification_logs'):
@@ -180,6 +193,7 @@ def run_migrations(db_path, backup=False, verbose=False, logger=None):
         ensure_employees_table(cursor, log)
         ensure_employees_role(cursor, log)
         ensure_employees_columns(cursor, log)
+        ensure_employees_status_column(cursor, log)
         ensure_notification_logs_table(cursor, log)
         ensure_notification_logs_content_column(cursor, log)
         conn.commit()

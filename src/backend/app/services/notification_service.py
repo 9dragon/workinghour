@@ -183,6 +183,11 @@ def run_scheduled_check_and_notify():
             logger.warning(f"员工 {user_name} 在 employees 表中找不到，跳过通知")
             skip_count += 1
             continue
+        if employee.employee_status == 'resigned':
+            _log(check_no, user_name, dept, None, 'skipped', '员工已离职')
+            logger.info(f"员工 {user_name} 已离职，跳过通知")
+            skip_count += 1
+            continue
         if not (employee.phone or employee.email):
             _log(check_no, user_name, dept, None, 'skipped', '无手机号且无邮箱')
             logger.warning(f"员工 {user_name} 既无手机号也无邮箱，跳过通知")

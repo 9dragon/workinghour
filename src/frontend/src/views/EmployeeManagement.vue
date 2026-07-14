@@ -70,6 +70,18 @@
           </el-select>
         </el-form-item>
 
+        <el-form-item label="状态">
+          <el-select
+            v-model="filterForm.statusFilter"
+            placeholder="请选择状态"
+            clearable
+            style="width: 150px"
+          >
+            <el-option label="在职" value="active" />
+            <el-option label="离职" value="resigned" />
+          </el-select>
+        </el-form-item>
+
         <el-form-item>
           <el-button type="primary" @click="handleQuery">
             <el-icon><Search /></el-icon>
@@ -125,6 +137,13 @@
             <el-tag v-else type="danger" size="small">未填</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="状态" min-width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.employeeStatus === 'resigned' ? 'info' : 'success'">
+              {{ row.employeeStatusLabel || (row.employeeStatus === 'resigned' ? '离职' : '在职') }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
@@ -176,6 +195,12 @@
             <el-option label="数采实施" value="data_collection" />
             <el-option label="软件实施" value="software_dev" />
             <el-option label="普通员工" value="staff" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="formData.employeeStatus" style="width: 100%">
+            <el-option label="在职" value="active" />
+            <el-option label="离职" value="resigned" />
           </el-select>
         </el-form-item>
         <el-form-item label="手机号">
@@ -237,7 +262,8 @@ const pagination = reactive({
 const filterForm = reactive({
   searchKeyword: '',
   roleFilter: '',
-  deptFilter: ''
+  deptFilter: '',
+  statusFilter: ''
 })
 const selectedEmployees = ref([])
 
@@ -250,6 +276,7 @@ const formData = reactive({
   employeeName: '',
   deptName: '',
   role: 'staff',
+  employeeStatus: 'active',
   phone: '',
   email: ''
 })
@@ -266,7 +293,8 @@ const loadUsers = async () => {
       size: pagination.size,
       keyword: filterForm.searchKeyword,
       role: filterForm.roleFilter,
-      dept: filterForm.deptFilter
+      dept: filterForm.deptFilter,
+      status: filterForm.statusFilter
     })
     employeeList.value = res.data.list
     pagination.total = res.data.total
@@ -299,6 +327,7 @@ const handleReset = () => {
   filterForm.searchKeyword = ''
   filterForm.deptFilter = ''
   filterForm.roleFilter = ''
+  filterForm.statusFilter = ''
   pagination.page = 1
   selectedEmployees.value = []
   loadUsers()
@@ -311,6 +340,7 @@ const handleAdd = () => {
   formData.employeeName = ''
   formData.deptName = ''
   formData.role = 'staff'
+  formData.employeeStatus = 'active'
   formData.phone = ''
   formData.email = ''
   dialogVisible.value = true
@@ -323,6 +353,7 @@ const handleEdit = (row) => {
   formData.employeeName = row.employeeName
   formData.deptName = row.deptName || ''
   formData.role = row.role || 'staff'
+  formData.employeeStatus = row.employeeStatus || 'active'
   formData.phone = row.phone || ''
   formData.email = row.email || ''
   dialogVisible.value = true
@@ -350,6 +381,7 @@ const handleSave = async () => {
       await updateEmployee(formData.id, {
         deptName: formData.deptName,
         role: formData.role,
+        employeeStatus: formData.employeeStatus,
         phone,
         email
       })
@@ -359,6 +391,7 @@ const handleSave = async () => {
         employeeName: formData.employeeName,
         deptName: formData.deptName,
         role: formData.role,
+        employeeStatus: formData.employeeStatus,
         phone,
         email
       })
