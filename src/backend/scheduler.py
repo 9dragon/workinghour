@@ -40,18 +40,68 @@ DEFAULT_CRON = '0 18 * * 1'
 DEFAULT_TZ = 'Asia/Shanghai'
 
 
+_DOW_ALIASES = {'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'}
+
+
+def _convert_dow_to_aps(expr):
+    """把 day_of_week 字段从 Linux cron 习惯转成 APScheduler 习惯。
+
+    必要性：APScheduler 的 DayOfWeekField.get_value 返回 dateval.weekday()
+    （0=Mon..6=Sun），而 Linux cron / crontab(5) / 前端 UI 都按
+    0=Sun, 1=Mon, ..., 5=Fri, 6=Sat, 7=Sun。两套编码差一天。
+
+    若不做转换，DB 存的 `0 18 * * 1`（用户期望周一）会被 APScheduler
+    解释成周二触发。
+
+    转换规则：linux_n -> (linux_n - 1) % 7
+        0(Sun)->6   1(Mon)->0   5(Fri)->4   6(Sat)->5   7(Sun)->6
+
+    支持 *, 别名(mon..sun), 数字, 范围(1-5), 列表(1,3,5), 步长(*/2, 1-5/2)。
+    """
+    if not expr or expr == '*':
+        return expr
+
+    def convert_token(tok):
+        tok = tok.strip().lower()
+        if not tok or tok == '*':
+            return tok
+        if tok in _DOW_ALIASES:
+            return tok
+        if '/' in tok:
+            base, step = tok.split('/', 1)
+            if base == '*':
+                return tok
+            return f'{convert_token(base)}/{step}'
+        if '-' in tok:
+            lo, hi = tok.split('-', 1)
+            try:
+                return f'{(int(lo) - 1) % 7}-{(int(hi) - 1) % 7}'
+            except ValueError:
+                return tok
+        try:
+            return str((int(tok) - 1) % 7)
+        except ValueError:
+            return tok
+
+    return ','.join(convert_token(p) for p in expr.split(','))
+
+
 def _parse_cron(expr, tz=None):
     """解析 5 字段 cron 表达式为 CronTrigger。失败抛 ValueError。
 
     tz 必须在构造函数里传入——直接给 trigger.timezone 赋字符串值会绕过
     APScheduler 的时区对象转换，触发 'tzinfo argument must be ... not str'。
+
+    day_of_week 按 Linux cron 习惯解释（0/7=Sun, 1=Mon, ..., 6=Sat），
+    内部转成 APScheduler 的 0=Mon..6=Sun。DB 与 UI 永远存 Linux cron 形式。
     """
     parts = (expr or '').split()
     if len(parts) != 5:
         raise ValueError(f"cron 表达式必须是 5 字段（分 时 日 月 周），当前: {expr!r}")
     return CronTrigger(
         minute=parts[0], hour=parts[1], day=parts[2],
-        month=parts[3], day_of_week=parts[4],
+        month=parts[3],
+        day_of_week=_convert_dow_to_aps(parts[4]),
         timezone=tz
     )
 
