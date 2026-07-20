@@ -9,6 +9,7 @@ services:
     container_name: workinghour-backend
     restart: unless-stopped
     environment:
+      - TZ=Asia/Shanghai
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-key}
@@ -60,6 +61,7 @@ services:
     restart: unless-stopped
     command: python scheduler.py
     environment:
+      - TZ=Asia/Shanghai
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-key}
